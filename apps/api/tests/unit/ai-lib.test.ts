@@ -166,7 +166,7 @@ describe("Gemini provider", () => {
     }) as unknown as typeof fetch;
     const provider = createGeminiProvider({
       apiKey: "test-key",
-      model: "gemini-2.5-flash",
+      model: "gemini-3.5-flash-lite",
       fetch: fakeFetch,
     });
     return { provider, calls };
@@ -183,7 +183,7 @@ describe("Gemini provider", () => {
 
     const [{ url, init }] = calls;
     expect(url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
     );
     expect(url).not.toContain("test-key");
     expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe("test-key");
@@ -235,6 +235,29 @@ describe("Gemini provider", () => {
     await expect(
       provider.generateTaskSuggestion("note", new AbortController().signal),
     ).rejects.toMatchObject({ category });
+  });
+
+  it("retries once when the model is momentarily overloaded (503)", async () => {
+    let attempt = 0;
+    const { provider, calls } = providerWith(async () =>
+      ++attempt === 1
+        ? new Response("{}", { status: 503 })
+        : ok(answer('{"title":"Plan","description":"Do it."}')),
+    );
+
+    await expect(
+      provider.generateTaskSuggestion("note", new AbortController().signal),
+    ).resolves.toEqual({ title: "Plan", description: "Do it." });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("gives up after the one retry", async () => {
+    const { provider, calls } = providerWith(async () => new Response("{}", { status: 503 }));
+
+    await expect(
+      provider.generateTaskSuggestion("note", new AbortController().signal),
+    ).rejects.toMatchObject({ category: "AI_PROVIDER_UNAVAILABLE" });
+    expect(calls).toHaveLength(2);
   });
 
   it("keeps the provider's reason code (not its message) for diagnosis", async () => {

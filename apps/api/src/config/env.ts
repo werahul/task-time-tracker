@@ -29,7 +29,8 @@ const originList = z
 
 const DEFAULT_AI_MODELS = {
   anthropic: "claude-opus-5",
-  gemini: "gemini-2.5-flash", // on Gemini's free tier
+  // gemini-2.5-flash is closed to new API keys; this is on the free tier and works with them.
+  gemini: "gemini-3.5-flash-lite",
 } as const;
 
 // Copied from the .env examples; never acceptable as a real secret.

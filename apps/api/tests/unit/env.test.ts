@@ -70,7 +70,7 @@ describe("environment validation", () => {
 
   it.each([
     ["anthropic", undefined, "claude-opus-5"],
-    ["gemini", undefined, "gemini-2.5-flash"],
+    ["gemini", undefined, "gemini-3.5-flash-lite"],
     ["gemini", "gemini-custom-model", "gemini-custom-model"],
   ])("defaults AI_MODEL per provider (%s, AI_MODEL=%s)", (provider, model, expected) => {
     const result = parseEnv({ ...base, AI_PROVIDER: provider, AI_API_KEY: "key", AI_MODEL: model });

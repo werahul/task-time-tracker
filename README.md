@@ -211,23 +211,23 @@ Open http://localhost:3000 and register, or sign in as the demo user. API docs: 
 
 The API validates its configuration at startup and refuses to start on a missing or invalid value, naming the variable but never printing its value. Every variable is documented in [`.env.example`](.env.example); each app has its own template where its env file is read.
 
-| Variable                                               | Default (dev → prod)           | Notes                                                                                                     |
-| ------------------------------------------------------ | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                             | `development`                  | `production` enables Secure cookies, HSTS and stricter checks                                             |
-| `PORT`                                                 | `5000`                         |                                                                                                           |
-| `DATABASE_URL`                                         | required                       | PostgreSQL connection string                                                                              |
-| `ACCESS_TOKEN_SECRET`                                  | required                       | ≥ 32 chars (≥ 64 in production); placeholders are rejected                                                |
-| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                   |                                                                                                           |
-| `FRONTEND_URL`                                         | `http://localhost:3000`        | Exact origin allow-list (comma-separated); `https://` in production                                       |
-| `COOKIE_SAME_SITE`                                     | `lax`                          | Keep `lax`; see [topology](docs/DEPLOYMENT.md#1-choose-a-topology)                                        |
-| `TRUST_PROXY`                                          | `0` → `1`                      | Proxy hops in front of the API (2 behind the web proxy)                                                   |
-| `APP_TIMEZONE`                                         | `UTC`                          | Fallback when the client sends no timezone                                                                |
-| `API_DOCS_ENABLED`                                     | `true` → `false`               | Swagger UI and `openapi.json`                                                                             |
-| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | unset / — / per provider       | `gemini` (free tier) or `anthropic`; unset = AI off. Model defaults: `gemini-2.5-flash` / `claude-opus-5` |
-| Rate limits, timeouts, `LOG_LEVEL`                     | see `.env.example`             |                                                                                                           |
-| `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD`               | `demo@example.com` / dev-only  | Seed only; the password is required in production                                                         |
-| `NEXT_PUBLIC_API_URL` (web)                            | `http://localhost:5000/api/v1` | Build-time; `https://…` or `/api/v1` (proxy). Invalid values fail the build                               |
-| `API_PROXY_URL` (web, server-side)                     | unset                          | API origin for the same-origin `/api/v1` proxy                                                            |
+| Variable                                               | Default (dev → prod)           | Notes                                                                                                          |
+| ------------------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                             | `development`                  | `production` enables Secure cookies, HSTS and stricter checks                                                  |
+| `PORT`                                                 | `5000`                         |                                                                                                                |
+| `DATABASE_URL`                                         | required                       | PostgreSQL connection string                                                                                   |
+| `ACCESS_TOKEN_SECRET`                                  | required                       | ≥ 32 chars (≥ 64 in production); placeholders are rejected                                                     |
+| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                   |                                                                                                                |
+| `FRONTEND_URL`                                         | `http://localhost:3000`        | Exact origin allow-list (comma-separated); `https://` in production                                            |
+| `COOKIE_SAME_SITE`                                     | `lax`                          | Keep `lax`; see [topology](docs/DEPLOYMENT.md#1-choose-a-topology)                                             |
+| `TRUST_PROXY`                                          | `0` → `1`                      | Proxy hops in front of the API (2 behind the web proxy)                                                        |
+| `APP_TIMEZONE`                                         | `UTC`                          | Fallback when the client sends no timezone                                                                     |
+| `API_DOCS_ENABLED`                                     | `true` → `false`               | Swagger UI and `openapi.json`                                                                                  |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | unset / — / per provider       | `gemini` (free tier) or `anthropic`; unset = AI off. Model defaults: `gemini-3.5-flash-lite` / `claude-opus-5` |
+| Rate limits, timeouts, `LOG_LEVEL`                     | see `.env.example`             |                                                                                                                |
+| `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD`               | `demo@example.com` / dev-only  | Seed only; the password is required in production                                                              |
+| `NEXT_PUBLIC_API_URL` (web)                            | `http://localhost:5000/api/v1` | Build-time; `https://…` or `/api/v1` (proxy). Invalid values fail the build                                    |
+| `API_PROXY_URL` (web, server-side)                     | unset                          | API origin for the same-origin `/api/v1` proxy                                                                 |
 
 Nothing secret is ever `NEXT_PUBLIC_`; a check of the production bundle finds no server variables in it.
 

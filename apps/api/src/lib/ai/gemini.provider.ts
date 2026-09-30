@@ -8,6 +8,7 @@ import { TASK_SUGGESTION_SYSTEM_PROMPT, wrapTaskInput } from "./task-suggestion.
  */
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const RETRY_DELAY_MS = 750;
 
 /** Gemini's structured-output schema (OpenAPI subset). Zod re-validates the result. */
 const RESPONSE_SCHEMA = {
@@ -127,9 +128,8 @@ export function createGeminiProvider(options: {
     model: options.model,
     async generateTaskSuggestion(input, signal) {
       try {
-        const response = await doFetch(
-          `${API_BASE}/${encodeURIComponent(options.model)}:generateContent`,
-          {
+        const send = () =>
+          doFetch(`${API_BASE}/${encodeURIComponent(options.model)}:generateContent`, {
             method: "POST",
             // The key goes in a header, never the URL, so it can't leak into logs.
             headers: { "content-type": "application/json", "x-goog-api-key": options.apiKey },
@@ -145,8 +145,15 @@ export function createGeminiProvider(options: {
               },
             }),
             signal,
-          },
-        );
+          });
+
+        let response = await send();
+        // Free-tier capacity spikes ("high demand") are usually momentary: retry
+        // once after a short pause. The AI service's deadline still bounds the total.
+        if (response.status === 503) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+          response = await send();
+        }
         if (!response.ok) {
           throw new GeminiHttpError(response.status, await readErrorReason(response));
         }
