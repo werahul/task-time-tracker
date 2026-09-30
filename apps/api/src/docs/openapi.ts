@@ -72,7 +72,14 @@ registry.registerPath({
       "Alive",
       z.object({
         success: z.literal(true),
-        data: z.object({ status: z.string(), message: z.string() }),
+        data: z.object({
+          status: z.string(),
+          message: z.string(),
+          commit: z
+            .string()
+            .nullable()
+            .openapi({ description: "Short git commit of the live build" }),
+        }),
       }),
     ),
   },

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { env } from "../config/env";
 import { lifecycle } from "../lib/lifecycle";
 import { logger } from "../lib/logger";
 import { prisma } from "../lib/prisma";
@@ -10,7 +11,8 @@ export const healthRouter = Router();
 
 /** Liveness: the process is up and serving HTTP. No dependency checks. */
 healthRouter.get("/", (_req, res) => {
-  sendSuccess(res, { status: "ok", message: "API is healthy" });
+  // `commit` shows which build is live (null locally); the repository is public anyway.
+  sendSuccess(res, { status: "ok", message: "API is healthy", commit: env.COMMIT });
 });
 
 /**

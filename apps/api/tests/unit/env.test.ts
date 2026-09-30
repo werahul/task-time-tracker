@@ -61,6 +61,14 @@ describe("environment validation", () => {
   });
 
   it.each([
+    [{}, null],
+    [{ RENDER_GIT_COMMIT: "2a43eacd1f2e3b4c5d6e7f8091a2b3c4d5e6f708" }, "2a43eac"],
+    [{ VERCEL_GIT_COMMIT_SHA: "302af79f830f866260a4a2a5dc29e5e447652d69" }, "302af79"],
+  ])("derives the short build commit from the platform (%o)", (overrides, expected) => {
+    expect(parseEnv({ ...base, ...overrides }).data?.COMMIT).toBe(expected);
+  });
+
+  it.each([
     ["anthropic", undefined, "claude-opus-5"],
     ["gemini", undefined, "gemini-2.5-flash"],
     ["gemini", "gemini-custom-model", "gemini-custom-model"],

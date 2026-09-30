@@ -156,6 +156,7 @@ describe("health checks", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe("ok");
+    expect(res.body.data).toHaveProperty("commit"); // null locally; the short SHA when deployed
     expect(spy).not.toHaveBeenCalled();
   });
 

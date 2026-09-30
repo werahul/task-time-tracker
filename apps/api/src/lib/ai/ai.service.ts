@@ -53,9 +53,17 @@ export function createAIService({ provider, timeoutMs }: AIServiceOptions) {
           error instanceof AIError
             ? error
             : new AIError("AI_PROVIDER_UNAVAILABLE", { cause: error });
-        // Category only — provider error messages can echo request details.
+        // Category plus the provider's HTTP status / reason code when known —
+        // never provider messages, which can echo request details.
+        const cause = aiError.cause as { status?: unknown; reason?: unknown } | undefined;
         logger.warn(
-          { ...logFields(), outcome: "failure", category: aiError.category },
+          {
+            ...logFields(),
+            outcome: "failure",
+            category: aiError.category,
+            providerStatus: typeof cause?.status === "number" ? cause.status : undefined,
+            providerReason: typeof cause?.reason === "string" ? cause.reason : undefined,
+          },
           "AI suggestion failed",
         );
         throw aiError;

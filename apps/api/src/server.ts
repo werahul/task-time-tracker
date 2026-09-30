@@ -8,7 +8,18 @@ const app = createApp();
 
 const server = app.listen(env.PORT, () => {
   logger.info(
-    { event: "server.started", port: env.PORT, nodeEnv: env.NODE_ENV, docs: env.API_DOCS_ENABLED },
+    {
+      event: "server.started",
+      port: env.PORT,
+      nodeEnv: env.NODE_ENV,
+      commit: env.COMMIT,
+      docs: env.API_DOCS_ENABLED,
+      // Whether AI suggestions are on, and with what (never the key).
+      ai:
+        env.AI_PROVIDER && env.AI_API_KEY
+          ? { provider: env.AI_PROVIDER, model: env.AI_MODEL }
+          : "disabled",
+    },
     "API listening",
   );
 });

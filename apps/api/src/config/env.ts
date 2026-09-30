@@ -93,6 +93,10 @@ const envSchema = z
     AI_MAX_INPUT_LENGTH: z.coerce.number().int().min(10).max(4000).default(1000),
     AI_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
     AI_RATE_LIMIT_WINDOW: durationInSeconds.default("15m"),
+
+    // Set by the hosting platform at runtime; reported by /health to show which build is live.
+    RENDER_GIT_COMMIT: blankAsUnset(z.string().optional()),
+    VERCEL_GIT_COMMIT_SHA: blankAsUnset(z.string().optional()),
   })
   .superRefine((env, ctx) => {
     const fail = (path: string, message: string) =>
@@ -119,17 +123,30 @@ const envSchema = z
       }
     }
   })
-  .transform(({ FRONTEND_URL, TRUST_PROXY, API_DOCS_ENABLED, LOG_LEVEL, AI_MODEL, ...env }) => {
-    const production = env.NODE_ENV === "production";
-    return {
-      ...env,
-      AI_MODEL: AI_MODEL ?? DEFAULT_AI_MODELS[env.AI_PROVIDER ?? "anthropic"],
-      FRONTEND_ORIGINS: FRONTEND_URL,
-      TRUST_PROXY: TRUST_PROXY ?? (production ? 1 : 0),
-      API_DOCS_ENABLED: API_DOCS_ENABLED ?? !production,
-      LOG_LEVEL: LOG_LEVEL ?? (env.NODE_ENV === "test" ? "silent" : "info"),
-    };
-  });
+  .transform(
+    ({
+      FRONTEND_URL,
+      TRUST_PROXY,
+      API_DOCS_ENABLED,
+      LOG_LEVEL,
+      AI_MODEL,
+      RENDER_GIT_COMMIT,
+      VERCEL_GIT_COMMIT_SHA,
+      ...env
+    }) => {
+      const production = env.NODE_ENV === "production";
+      return {
+        ...env,
+        /** Short git commit of the running build, or null when not provided (local). */
+        COMMIT: (RENDER_GIT_COMMIT ?? VERCEL_GIT_COMMIT_SHA)?.slice(0, 7) ?? null,
+        AI_MODEL: AI_MODEL ?? DEFAULT_AI_MODELS[env.AI_PROVIDER ?? "anthropic"],
+        FRONTEND_ORIGINS: FRONTEND_URL,
+        TRUST_PROXY: TRUST_PROXY ?? (production ? 1 : 0),
+        API_DOCS_ENABLED: API_DOCS_ENABLED ?? !production,
+        LOG_LEVEL: LOG_LEVEL ?? (env.NODE_ENV === "test" ? "silent" : "info"),
+      };
+    },
+  );
 
 export type Env = z.output<typeof envSchema>;
 

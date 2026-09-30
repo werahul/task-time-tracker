@@ -237,6 +237,41 @@ describe("Gemini provider", () => {
     ).rejects.toMatchObject({ category });
   });
 
+  it("keeps the provider's reason code (not its message) for diagnosis", async () => {
+    const body = {
+      error: {
+        code: 400,
+        message: "API key not valid. Please pass a valid API key.",
+        status: "INVALID_ARGUMENT",
+        details: [{ reason: "API_KEY_INVALID" }],
+      },
+    };
+    const { provider } = providerWith(
+      async () => new Response(JSON.stringify(body), { status: 400 }),
+    );
+
+    const error = (await provider
+      .generateTaskSuggestion("note", new AbortController().signal)
+      .catch((e: unknown) => e)) as AIError;
+
+    expect(error).toMatchObject({ category: "AI_CONFIGURATION_ERROR" });
+    expect(error.cause).toMatchObject({ status: 400, reason: "API_KEY_INVALID" });
+    expect(String((error.cause as Error).message)).not.toContain("Please pass");
+  });
+
+  it("ignores reason fields that aren't codes", async () => {
+    const body = { error: { status: "some free text; with <input>" } };
+    const { provider } = providerWith(
+      async () => new Response(JSON.stringify(body), { status: 403 }),
+    );
+
+    const error = (await provider
+      .generateTaskSuggestion("note", new AbortController().signal)
+      .catch((e: unknown) => e)) as AIError;
+
+    expect(error.cause).toMatchObject({ status: 403, reason: undefined });
+  });
+
   it("maps our deadline aborting the request to a timeout", async () => {
     const { provider } = providerWith(async () => {
       throw new DOMException("aborted", "AbortError");

@@ -39,11 +39,36 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-/** An HTTP error from the Gemini API; the status is all we keep (bodies can echo input). */
+/**
+ * An HTTP error from the Gemini API. Only the status and an enum-like reason
+ * code (e.g. API_KEY_INVALID, PERMISSION_DENIED) are kept: error messages can
+ * echo request content, codes can't.
+ */
 export class GeminiHttpError extends Error {
-  constructor(public readonly status: number) {
-    super(`Gemini API responded ${status}`);
+  constructor(
+    public readonly status: number,
+    public readonly reason?: string,
+  ) {
+    super(`Gemini API responded ${status}${reason ? ` (${reason})` : ""}`);
     this.name = "GeminiHttpError";
+  }
+}
+
+const REASON_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+/** Extracts the machine-readable reason from an error body, if it looks like a code. */
+async function readErrorReason(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as {
+      error?: { status?: unknown; details?: { reason?: unknown }[] };
+    };
+    const candidates = [
+      ...(body.error?.details ?? []).map((detail) => detail.reason),
+      body.error?.status,
+    ];
+    return candidates.find((c): c is string => typeof c === "string" && REASON_CODE.test(c));
+  } catch {
+    return undefined;
   }
 }
 
@@ -122,7 +147,9 @@ export function createGeminiProvider(options: {
             signal,
           },
         );
-        if (!response.ok) throw new GeminiHttpError(response.status);
+        if (!response.ok) {
+          throw new GeminiHttpError(response.status, await readErrorReason(response));
+        }
         return parseGeminiResponse((await response.json()) as GeminiResponse);
       } catch (error) {
         throw classifyGeminiError(error);
