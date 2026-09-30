@@ -303,7 +303,7 @@ Frontend on Vercel, API on Render, PostgreSQL on Neon. The web app proxies `/api
 
 ### Known limitations
 
-- The AI path has only run against a mocked provider in tests; the Anthropic adapter is type-checked against the SDK and unit-tested with its real error classes.
+- The AI path is verified in production against Gemini's free tier (`gemini-3.5-flash-lite`); the Anthropic adapter has only run against a mocked provider (type-checked against the SDK and unit-tested with its real error classes). Free-tier capacity varies: a busy moment can make a suggestion take several seconds, or fail with a clear "try again" message.
 - UI flows were verified in a headless Chromium browser (Edge) against production builds: 25 checks covering auth, timer persistence across reloads and browser restarts, dashboards, keyboard navigation, dialogs, horizontal overflow at 375/768/1280 px, contrast, session expiry and logout. They have not yet been checked on physical phones or tablets, or in Safari.
 - Registration reveals whether an email is taken (409, per the API contract); login does not.
 - Two concurrent status changes to one task can both pass the transition check (no row locking; single-user data).
