@@ -31,3 +31,6 @@ Thumbs.db
 
 # Testing / coverage
 coverage/
+
+# Vercel build output for the API project (empty placeholder)
+apps/api/public/

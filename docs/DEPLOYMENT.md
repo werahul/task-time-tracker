@@ -7,26 +7,40 @@ Browser ──HTTPS──► Next.js host ──HTTPS──► Express API ─�
                                                  └──────► AI provider (optional)
 ```
 
-Any Next.js host and any Node.js host work. The worked example uses **Vercel** (web), **Render** (API) and **Neon** (PostgreSQL); the setting names below are theirs, and the commands and values are this repository's.
+Any Next.js host and any Node.js host work. The recommended setup, used below, is **two Vercel projects from this one repository** plus **Neon** PostgreSQL:
+
+```text
+GitHub repo
+ ├── Vercel project "web"  (Root Directory: apps/web)  → Next.js
+ ├── Vercel project "api"  (Root Directory: apps/api)  → Express as one serverless function
+ └── Neon PostgreSQL
+```
+
+A long-running Node host (e.g. Render) is documented as an alternative in [section 3B](#3b-alternative-api-on-a-long-running-host-render).
 
 ## 1. Choose a topology
 
 Auth uses HttpOnly cookies, so the browser must treat the API's cookies as **first-party**. Pick one of these:
 
-| Topology                                                                                         | Browser calls                           | Settings                                                                                                                 |
-| ------------------------------------------------------------------------------------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **A. Same site** (custom domains `app.example.com` + `api.example.com`)                          | the API directly (CORS)                 | `NEXT_PUBLIC_API_URL=https://api.example.com/api/v1`, `COOKIE_SAME_SITE=lax`, `TRUST_PROXY=1`                            |
-| **B. Different sites** (e.g. `tracker.vercel.app` + `tracker-api.onrender.com`), **recommended** | the web origin, which proxies `/api/v1` | `NEXT_PUBLIC_API_URL=/api/v1`, `API_PROXY_URL=https://tracker-api.onrender.com`, `COOKIE_SAME_SITE=lax`, `TRUST_PROXY=2` |
+| Topology                                                                                       | Browser calls                           | Settings                                                                                              |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **A. Same site** (custom domains `app.example.com` + `api.example.com`)                        | the API directly (CORS)                 | `NEXT_PUBLIC_API_URL=https://api.example.com/api/v1`, `COOKIE_SAME_SITE=lax`, `TRUST_PROXY=1`         |
+| **B. Different sites** (e.g. `tracker.vercel.app` + `tracker-api.vercel.app`), **recommended** | the web origin, which proxies `/api/v1` | `NEXT_PUBLIC_API_URL=/api/v1`, `API_PROXY_URL=https://tracker-api.vercel.app`, `COOKIE_SAME_SITE=lax` |
 
 In both, `FRONTEND_URL` is the exact web origin (e.g. `https://tracker.vercel.app`).
 
-Why B exists: across different sites the API's cookies are third-party, and Safari (and increasingly other browsers) blocks them even with `SameSite=None; Secure`. With `API_PROXY_URL`, Next.js forwards `/api/v1/*` to the API server-side. The browser sees one origin, cookies are first-party, and `SameSite=Lax` works. `COOKIE_SAME_SITE=none` remains available but is not recommended.
+Two `*.vercel.app` subdomains count as **different sites** (`vercel.app` is a public suffix), so the two-Vercel-projects setup is topology B. Why B exists: across different sites the API's cookies are third-party, and Safari (and increasingly other browsers) blocks them even with `SameSite=None; Secure`. With `API_PROXY_URL`, Next.js forwards `/api/v1/*` to the API server-side. The browser sees one origin, cookies are first-party, and `SameSite=Lax` works. `COOKIE_SAME_SITE=none` remains available but is not recommended.
 
 `TRUST_PROXY` is the number of proxies in front of the API, used to find the client IP for rate limiting. In B there is one more hop (the web host). After deploying, confirm that the API's `request completed` log lines and rate limiting reflect real client IPs, and adjust if your hosts add different hops.
 
 ## 2. Database (Neon or any managed PostgreSQL 14+)
 
-1. Create a database and copy its connection string, with TLS (`?sslmode=require`), as `DATABASE_URL`.
+1. Create a Neon project. From **Connect**, copy two connection strings (both with `?sslmode=require`):
+   - **Pooled** (host contains `-pooler`) → `DATABASE_URL`, with `&pgbouncer=true&connection_limit=1` appended. Serverless functions open many short-lived connections; the pooler absorbs them.
+   - **Direct** (no `-pooler`) → `DIRECT_DATABASE_URL`, used only to run migrations (they need a session-level connection).
+
+   On a long-running host (3B), the direct URL as `DATABASE_URL` is enough.
+
 2. Schema changes reach production only through committed migrations:
 
    ```text
@@ -35,7 +49,28 @@ Why B exists: across different sites the API's cookies are third-party, and Safa
 
    `prisma migrate deploy` applies pending migrations and nothing else: it never resets, drops or runs `db push`. Migrations are forward-only, so keep them backward compatible (add, backfill, then remove in a later release) so the previous API version keeps working while a release rolls out.
 
-## 3. API (Render web service)
+## 3. API
+
+### 3A. API on Vercel (recommended)
+
+Create a second Vercel project from the same repository. `apps/api/vercel.json` already configures the build, the function and the routing:
+
+| Setting        | Value                                          |
+| -------------- | ---------------------------------------------- |
+| Root directory | `apps/api`                                     |
+| Framework      | Other                                          |
+| Build / output | leave empty: taken from `apps/api/vercel.json` |
+| Node version   | 22.x (Project Settings → General)              |
+
+How it works:
+
+- `apps/api/api/index.ts` exports the Express app as a single serverless function, and `vercel.json` rewrites every path to it. Express still sees the original URL, so every route stays under `/api/v1`.
+- `scripts/vercel-build.sh` builds the shared package and runs `prisma migrate deploy` through `DIRECT_DATABASE_URL`, **only for production deployments**. Preview deployments of other branches never touch the production schema.
+- The function may run up to 30 s (`maxDuration`), above the AI timeout (20 s).
+
+Differences from a long-running host: the first request after idle is slower (cold start); rate limits are counted per function instance, so they're weaker; graceful shutdown doesn't apply. Timers, sessions and analytics are unaffected, because all state is in PostgreSQL.
+
+### 3B. Alternative: API on a long-running host (Render)
 
 | Setting            | Value                                                         |
 | ------------------ | ------------------------------------------------------------- |
@@ -54,20 +89,22 @@ Order per release: install → build → **migrate** → start. If your plan has
 | Variable                                               | Value                                                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                             | `production`                                                                                            |
-| `PORT`                                                 | provided by the platform (or `5000`)                                                                    |
-| `DATABASE_URL`                                         | from step 2                                                                                             |
+| `PORT`                                                 | 3B only: provided by the platform (or `5000`)                                                           |
+| `DATABASE_URL`                                         | from step 2 (pooled on Vercel, direct on 3B)                                                            |
+| `DIRECT_DATABASE_URL`                                  | 3A only: Neon's direct URL, for migrations                                                              |
+| `NODEJS_HELPERS`                                       | 3A only: `0`, so Vercel doesn't pre-parse request bodies (Express does it)                              |
 | `ACCESS_TOKEN_SECRET`                                  | a new 64+ char secret: `node -e "console.log(require('crypto').randomBytes(64).toString('base64url'))"` |
 | `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                                                                                            |
 | `FRONTEND_URL`                                         | exact web origin, `https://…` (comma-separate extra origins)                                            |
 | `COOKIE_SAME_SITE`                                     | `lax`                                                                                                   |
-| `TRUST_PROXY`                                          | `1` (topology A) or `2` (topology B)                                                                    |
+| `TRUST_PROXY`                                          | `1` (3A, and topology A on 3B) or `2` (topology B on 3B); confirm client IPs in the logs                |
 | `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | `anthropic` / key / model, or leave `AI_PROVIDER` empty to disable AI                                   |
 
 The API refuses to start with an `http://` `FRONTEND_URL`, a secret under 64 characters or equal to an example value, `SameSite=None` outside production, or an AI provider without a key. API docs are off in production unless `API_DOCS_ENABLED=true`.
 
 **Health checks:** `GET /api/v1/health` is liveness (process up, no dependencies). `GET /api/v1/health/ready` runs `SELECT 1` against PostgreSQL within 2 s and returns 503 if the database is unreachable or the server is shutting down. Neither exposes hosts, credentials or error text. On shutdown (SIGTERM) the API fails readiness, drains in-flight requests for up to `SHUTDOWN_TIMEOUT_MS`, then exits.
 
-**Scheduled job:** run `npm run db:cleanup-sessions -w apps/api` daily (e.g. a Render cron job with the same `DATABASE_URL`).
+**Scheduled job:** run `npm run db:cleanup-sessions -w apps/api` periodically against the production database (a Render cron job on 3B; on 3A, from any trusted machine with `DATABASE_URL` set to the direct URL). Expired sessions are harmless until then, just unused rows.
 
 ## 4. Web (Vercel project)
 
@@ -104,7 +141,7 @@ Pull request → CI (drift check, typecheck, lint, format, unit, integration, bu
 
 - `.github/workflows/ci.yml` only validates; it holds no deployment secrets.
 - In GitHub → Settings → Branches, protect `main`: require a pull request and require the **CI / verify** status check to pass.
-- On the API host, deploy only after checks pass (Render: _Auto-Deploy → After CI Checks Pass_). Vercel builds every push; with `main` protected, only CI-green code reaches production.
+- Vercel builds every push, but only `main` becomes production, and with `main` protected only CI-green code gets there. (On Render, also set _Auto-Deploy → After CI Checks Pass_.)
 
 ## 7. Verify the deployment
 
@@ -112,7 +149,7 @@ Pull request → CI (drift check, typecheck, lint, format, unit, integration, bu
 2. **Smoke test** (creates one throwaway `e2e.*@example.com` user):
 
    ```bash
-   # Topology B: go through the web origin so the proxy is tested too
+   # Two Vercel projects: go through the web origin so the proxy is tested too
    scripts/smoke-test.sh https://tracker.vercel.app/api/v1 https://tracker.vercel.app
    # Topology A
    scripts/smoke-test.sh https://api.example.com/api/v1 https://app.example.com

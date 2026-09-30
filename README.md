@@ -259,14 +259,14 @@ Tests run against real PostgreSQL. Setup refuses databases whose name doesn't en
 
 ## Deployment
 
-Frontend and API deploy separately; PostgreSQL is managed. The full runbook, including platform settings, is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**. In short:
+Two Vercel projects from this one repository (web: `apps/web`, API: `apps/api` as a serverless function) plus Neon PostgreSQL. The full runbook is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**; it also covers a long-running Node host. In short:
 
-1. **Database:** create a managed PostgreSQL database and set `DATABASE_URL`.
-2. **API:** build with `npm ci && npm run build:shared && npm run build -w apps/api`. Then, on every release and before starting the new version, run `npm run db:deploy`. Start with `npm start -w apps/api` (or `start:migrate`, which does both). Health checks: `/api/v1/health` (liveness) and `/api/v1/health/ready` (readiness).
-3. **Web:** a Next.js host with `NEXT_PUBLIC_API_URL`. For a frontend on a different site than the API, also set `API_PROXY_URL` and use `NEXT_PUBLIC_API_URL=/api/v1`.
+1. **Database:** a Neon project; the pooled URL is `DATABASE_URL`, the direct URL is `DIRECT_DATABASE_URL` (migrations).
+2. **API:** Vercel project with Root Directory `apps/api`. `apps/api/vercel.json` builds it, routes everything to the Express app, and runs `prisma migrate deploy` on production deployments only. Health checks: `/api/v1/health` and `/api/v1/health/ready`.
+3. **Web:** Vercel project with Root Directory `apps/web`, `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_URL=<API URL>`, so auth cookies stay first-party.
 4. **Verify:** run `scripts/smoke-test.sh`, then the browser checklist in the runbook.
 
-Deployment is gated on CI: hosts deploy `main` only after the CI check passes, and `main` is protected by a required CI check.
+Deployment is gated on CI: only `main` becomes production, and `main` is protected by a required CI check.
 
 ## Live Demo
 
