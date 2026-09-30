@@ -165,6 +165,21 @@ Pull request → CI (drift check, typecheck, lint, format, unit, integration, bu
    - Sign out → the back button or `/dashboard` sends you to sign-in.
    - Wait 15+ minutes (the access token expires), then act: the session refreshes silently.
 
+### Troubleshooting: `P1002 … Timed out trying to acquire a postgres advisory lock`
+
+Migrations were run through Neon's pooled (`-pooler`) host. Prisma holds a session-level advisory lock while migrating; through a transaction-mode pooler that lock can stay held on a pooled server connection, so the next deploy times out. `npm run db:deploy` / `start:migrate` now refuse pooler hosts with an explanation. To recover:
+
+1. In the Neon **SQL Editor**, release the stuck lock:
+
+   ```sql
+   SELECT pg_terminate_backend(pid)
+   FROM pg_locks
+   WHERE locktype = 'advisory' AND pid <> pg_backend_pid();
+   ```
+
+2. Point migrations at the **direct** connection string (Neon → Connect, connection pooling off): set it as `DATABASE_URL` on a long-running host, or as `DIRECT_DATABASE_URL` alongside a pooled `DATABASE_URL`.
+3. Redeploy.
+
 ## 8. Rollback
 
 Redeploy the previous build on each host. Migrations are not rolled back automatically; because they are backward compatible (section 2), the previous API version runs against the newer schema. If a migration itself is wrong, fix it forward with a new migration.

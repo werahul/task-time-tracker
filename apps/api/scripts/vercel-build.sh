@@ -11,7 +11,7 @@ set -euo pipefail
 # (every pushed branch) must never apply unmerged migrations to the production
 # database. Migrations use Neon's direct (non-pooled) URL when provided.
 if [ "${VERCEL_ENV:-}" = "production" ]; then
-  DATABASE_URL="${DIRECT_DATABASE_URL:-$DATABASE_URL}" npx prisma migrate deploy
+  node scripts/migrate-deploy.mjs
 else
   echo "Skipping migrations for a ${VERCEL_ENV:-local} build."
 fi
