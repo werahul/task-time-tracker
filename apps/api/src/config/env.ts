@@ -27,6 +27,11 @@ const originList = z
   .pipe(z.array(z.string().url("each FRONTEND_URL entry must be a URL")).min(1))
   .transform((urls) => [...new Set(urls.map((url) => new URL(url).origin))]);
 
+const DEFAULT_AI_MODELS = {
+  anthropic: "claude-opus-5",
+  gemini: "gemini-2.5-flash", // on Gemini's free tier
+} as const;
+
 // Copied from the .env examples; never acceptable as a real secret.
 const PLACEHOLDER_SECRET = "replace-with-a-long-random-secret";
 // From .env.test.example; fine for tests, never for production.
@@ -79,9 +84,11 @@ const envSchema = z
 
     // --- AI task assistant (optional; unset AI_PROVIDER disables it) ---------
     // Server-side only: none of these are ever sent to the browser.
-    AI_PROVIDER: blankAsUnset(z.enum(["anthropic"]).optional()),
+    // "gemini" has a free tier (Google AI Studio key); "anthropic" needs paid credit.
+    AI_PROVIDER: blankAsUnset(z.enum(["anthropic", "gemini"]).optional()),
     AI_API_KEY: blankAsUnset(z.string().optional()),
-    AI_MODEL: blankAsUnset(z.string().default("claude-opus-5")),
+    // Defaults per provider (see DEFAULT_AI_MODELS) when unset.
+    AI_MODEL: blankAsUnset(z.string().optional()),
     AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(20_000),
     AI_MAX_INPUT_LENGTH: z.coerce.number().int().min(10).max(4000).default(1000),
     AI_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
@@ -112,10 +119,11 @@ const envSchema = z
       }
     }
   })
-  .transform(({ FRONTEND_URL, TRUST_PROXY, API_DOCS_ENABLED, LOG_LEVEL, ...env }) => {
+  .transform(({ FRONTEND_URL, TRUST_PROXY, API_DOCS_ENABLED, LOG_LEVEL, AI_MODEL, ...env }) => {
     const production = env.NODE_ENV === "production";
     return {
       ...env,
+      AI_MODEL: AI_MODEL ?? DEFAULT_AI_MODELS[env.AI_PROVIDER ?? "anthropic"],
       FRONTEND_ORIGINS: FRONTEND_URL,
       TRUST_PROXY: TRUST_PROXY ?? (production ? 1 : 0),
       API_DOCS_ENABLED: API_DOCS_ENABLED ?? !production,

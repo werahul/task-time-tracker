@@ -88,19 +88,19 @@ Order per release: install → build → **migrate** → start. If your plan has
 
 **Environment** (the platform's secret store; never committed):
 
-| Variable                                               | Value                                                                                                   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                             | `production`                                                                                            |
-| `PORT`                                                 | 3B only: provided by the platform (or `5000`)                                                           |
-| `DATABASE_URL`                                         | from step 2 (pooled on Vercel, direct on 3B)                                                            |
-| `DIRECT_DATABASE_URL`                                  | 3A only: Neon's direct URL, for migrations                                                              |
-| `NODEJS_HELPERS`                                       | 3A only: `0`, so Vercel doesn't pre-parse request bodies (Express does it)                              |
-| `ACCESS_TOKEN_SECRET`                                  | a new 64+ char secret: `node -e "console.log(require('crypto').randomBytes(64).toString('base64url'))"` |
-| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                                                                                            |
-| `FRONTEND_URL`                                         | exact web origin, `https://…` (comma-separate extra origins)                                            |
-| `COOKIE_SAME_SITE`                                     | `lax`                                                                                                   |
-| `TRUST_PROXY`                                          | `1` (3A, and topology A on 3B) or `2` (topology B on 3B); confirm client IPs in the logs                |
-| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | `anthropic` / key / model, or leave `AI_PROVIDER` empty to disable AI                                   |
+| Variable                                               | Value                                                                                                                                                                                                 |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                             | `production`                                                                                                                                                                                          |
+| `PORT`                                                 | 3B only: provided by the platform (or `5000`)                                                                                                                                                         |
+| `DATABASE_URL`                                         | from step 2 (pooled on Vercel, direct on 3B)                                                                                                                                                          |
+| `DIRECT_DATABASE_URL`                                  | 3A only: Neon's direct URL, for migrations                                                                                                                                                            |
+| `NODEJS_HELPERS`                                       | 3A only: `0`, so Vercel doesn't pre-parse request bodies (Express does it)                                                                                                                            |
+| `ACCESS_TOKEN_SECRET`                                  | a new 64+ char secret: `node -e "console.log(require('crypto').randomBytes(64).toString('base64url'))"`                                                                                               |
+| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                                                                                                                                                                                          |
+| `FRONTEND_URL`                                         | exact web origin, `https://…` (comma-separate extra origins)                                                                                                                                          |
+| `COOKIE_SAME_SITE`                                     | `lax`                                                                                                                                                                                                 |
+| `TRUST_PROXY`                                          | `1` (3A, and topology A on 3B) or `2` (topology B on 3B); confirm client IPs in the logs                                                                                                              |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | `gemini` + a free [Google AI Studio](https://aistudio.google.com/apikey) key, or `anthropic` + a paid key; leave `AI_MODEL` empty for the provider's default. Leave `AI_PROVIDER` empty to disable AI |
 
 The API refuses to start with an `http://` `FRONTEND_URL`, a secret under 64 characters or equal to an example value, `SameSite=None` outside production, or an AI provider without a key. API docs are off in production unless `API_DOCS_ENABLED=true`.
 

@@ -4,7 +4,7 @@ A 3–5 minute tour of the app, then the assignment requirements mapped to where
 
 ## Demo flow (≈ 4 minutes)
 
-Before starting: the app is running (live, or `npm run dev` + `npm run db:seed`), you're signed out, and ideally `AI_PROVIDER` is configured. With the demo seed, the dashboards already show a realistic week.
+Before starting: the app is running (live, or `npm run dev` + `npm run db:seed`), you're signed out, and ideally AI is configured (`AI_PROVIDER=gemini` with a free Google AI Studio key works). With the demo seed, the dashboards already show a realistic week.
 
 | Step | Do                                                                                                  | Point out                                                                                                    |
 | ---- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |

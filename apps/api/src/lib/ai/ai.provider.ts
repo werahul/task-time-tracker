@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../../config/env";
 import { AIError, type AIProvider } from "./ai.types";
+import { createGeminiProvider } from "./gemini.provider";
 import {
   TASK_SUGGESTION_JSON_SCHEMA,
   TASK_SUGGESTION_SYSTEM_PROMPT,
@@ -90,10 +91,15 @@ export function createAnthropicProvider(options: { apiKey: string; model: string
 
 /** The configured provider, or null when AI is disabled (AI_PROVIDER unset). */
 function createConfiguredProvider(): AIProvider | null {
-  if (env.AI_PROVIDER === "anthropic" && env.AI_API_KEY) {
-    return createAnthropicProvider({ apiKey: env.AI_API_KEY, model: env.AI_MODEL });
+  if (!env.AI_API_KEY) return null;
+  switch (env.AI_PROVIDER) {
+    case "anthropic":
+      return createAnthropicProvider({ apiKey: env.AI_API_KEY, model: env.AI_MODEL });
+    case "gemini":
+      return createGeminiProvider({ apiKey: env.AI_API_KEY, model: env.AI_MODEL });
+    default:
+      return null;
   }
-  return null;
 }
 
 export const aiProvider = createConfiguredProvider();

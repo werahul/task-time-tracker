@@ -60,6 +60,17 @@ describe("environment validation", () => {
     expect(result.data?.AI_MODEL).toBe("claude-opus-5");
   });
 
+  it.each([
+    ["anthropic", undefined, "claude-opus-5"],
+    ["gemini", undefined, "gemini-2.5-flash"],
+    ["gemini", "gemini-custom-model", "gemini-custom-model"],
+  ])("defaults AI_MODEL per provider (%s, AI_MODEL=%s)", (provider, model, expected) => {
+    const result = parseEnv({ ...base, AI_PROVIDER: provider, AI_API_KEY: "key", AI_MODEL: model });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.AI_MODEL).toBe(expected);
+  });
+
   it("accepts a comma-separated list of frontend origins, normalized", () => {
     const result = parseEnv({
       ...base,
