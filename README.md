@@ -259,21 +259,21 @@ Tests run against real PostgreSQL. Setup refuses databases whose name doesn't en
 
 ## Deployment
 
-Two Vercel projects from this one repository (web: `apps/web`, API: `apps/api` as a serverless function) plus Neon PostgreSQL. The full runbook is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**; it also covers a long-running Node host. In short:
+Production runs the web app on **Vercel** (`apps/web`), the API on **Render** (a long-running Node service) and PostgreSQL on **Neon**. The full runbook is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**; it also covers running the API on Vercel as a serverless function. In short:
 
-1. **Database:** a Neon project; the pooled URL is `DATABASE_URL`, the direct URL is `DIRECT_DATABASE_URL` (migrations).
-2. **API:** Vercel project with Root Directory `apps/api`. `apps/api/vercel.json` builds it, routes everything to the Express app, and runs `prisma migrate deploy` on production deployments only. Health checks: `/api/v1/health` and `/api/v1/health/ready`.
-3. **Web:** Vercel project with Root Directory `apps/web`, `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_URL=<API URL>`, so auth cookies stay first-party.
+1. **Database:** a Neon project; its connection string is the API's `DATABASE_URL`.
+2. **API (Render):** build `npm ci --include=dev && npm run build:shared && npm run build -w apps/api`, start `npm run start:migrate -w apps/api` (applies committed migrations, then starts), health check `/api/v1/health/ready`.
+3. **Web (Vercel):** Root Directory `apps/web`, `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_URL=<Render URL>`, so auth cookies stay first-party. The API's `FRONTEND_URL` is the exact Vercel URL.
 4. **Verify:** run `scripts/smoke-test.sh`, then the browser checklist in the runbook.
 
 Deployment is gated on CI: only `main` becomes production, and `main` is protected by a required CI check.
 
 ## Live Demo
 
-> _Not deployed yet._ After deploying, add the URLs here:
->
-> - App: `https://…`
-> - API docs: disabled in production by default (`API_DOCS_ENABLED`); run locally for Swagger UI.
+- **App:** https://task-time-tracker-nk77.vercel.app (register an account in seconds)
+- **API:** https://task-time-tracker-5emy.onrender.com/api/v1/health/ready (health/readiness; interactive API docs are disabled in production, so run locally for Swagger UI at `/api/v1/docs`)
+
+Frontend on Vercel, API on Render, PostgreSQL on Neon. The web app proxies `/api/v1` to the API, so auth cookies are first-party. Production was verified with `scripts/smoke-test.sh` (23/23) and a real-browser pass (register, task, timer across reload, dashboard, logout). The API runs on Render's free tier, which sleeps when idle: the first request after a quiet period can take up to a minute.
 
 ## Demo Credentials
 

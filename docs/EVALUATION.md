@@ -65,12 +65,12 @@ Legend: **auto**: covered by the automated suites in CI · **e2e**: `scripts/smo
 
 ### Deployment
 
-| Requirement                           | Status                                                                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Frontend / backend live, DB connected | Pending: follow [DEPLOYMENT.md](DEPLOYMENT.md), then update the README's Live Demo section                                                             |
-| Auth works in production              | Verified against **production builds** locally (`NODE_ENV=production`, Secure cookies, proxy topology): smoke test 23/23. Repeat against the live URLs |
-| README setup works                    | Verified: fresh database → `db:deploy` → seed → run                                                                                                    |
-| CI passes                             | `npm run verify` passes locally; the workflow runs on the first push                                                                                   |
+| Requirement                           | Status                                                                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend / backend live, DB connected | Live: web https://task-time-tracker-nk77.vercel.app (Vercel), API on Render, Neon PostgreSQL; `/health/ready` reports the database `ok`                                                |
+| Auth works in production              | Verified on the live URLs: smoke test 23/23 (Secure, HttpOnly, first-party cookies through the proxy) and a real-browser pass (register, task, timer across reload, dashboard, logout) |
+| README setup works                    | Verified: fresh database → `db:deploy` → seed → run                                                                                                                                    |
+| CI passes                             | `npm run verify` passes locally; GitHub Actions runs the same checks on every push and PR                                                                                              |
 
 ## Security checklist
 

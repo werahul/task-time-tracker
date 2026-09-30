@@ -72,15 +72,17 @@ Differences from a long-running host: the first request after idle is slower (co
 
 ### 3B. Alternative: API on a long-running host (Render)
 
-| Setting            | Value                                                         |
-| ------------------ | ------------------------------------------------------------- |
-| Root directory     | repository root                                               |
-| Build command      | `npm ci && npm run build:shared && npm run build -w apps/api` |
-| Pre-deploy command | `npm run db:deploy`                                           |
-| Start command      | `npm start -w apps/api`                                       |
-| Health check path  | `/api/v1/health/ready`                                        |
-| Node version       | 22 (`engines` requires ≥ 20)                                  |
-| Auto-deploy        | after CI checks pass (see [CI gate](#6-ci-gate))              |
+| Setting            | Value                                                                       |
+| ------------------ | --------------------------------------------------------------------------- |
+| Root directory     | repository root                                                             |
+| Build command      | `npm ci --include=dev && npm run build:shared && npm run build -w apps/api` |
+| Pre-deploy command | `npm run db:deploy`                                                         |
+| Start command      | `npm start -w apps/api`                                                     |
+| Health check path  | `/api/v1/health/ready`                                                      |
+| Node version       | 22 (`engines` requires ≥ 20)                                                |
+| Auto-deploy        | after CI checks pass (see [CI gate](#6-ci-gate))                            |
+
+Keep `--include=dev` in the build command: with `NODE_ENV=production` set, a plain `npm ci` skips dev dependencies (including TypeScript) and the build fails.
 
 Order per release: install → build → **migrate** → start. If your plan has no pre-deploy step, use `npm run start:migrate -w apps/api` as the start command: it runs `prisma migrate deploy` and then starts the server, and it won't start if migrating fails. `prisma` is a runtime dependency, so this works with production-only installs.
 
