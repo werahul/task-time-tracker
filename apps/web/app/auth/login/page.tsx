@@ -12,11 +12,14 @@ export default function LoginPage() {
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Welcome back. Pick up where you left off.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4">
+      <CardContent className="grid gap-5">
         <LoginForm />
         <p className="text-center text-sm text-muted-foreground">
           No account yet?{" "}
-          <Link href="/auth/register" className="text-primary hover:underline">
+          <Link
+            href="/auth/register"
+            className="font-medium text-primary transition-colors hover:text-orange-300"
+          >
             Create one
           </Link>
         </p>

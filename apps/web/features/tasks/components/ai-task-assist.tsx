@@ -33,9 +33,12 @@ export function AiTaskAssist({ onApply }: AiTaskAssistProps) {
   };
 
   return (
-    <div className="grid gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-3">
+    <div className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.02] p-4">
       <div className="grid gap-2">
-        <Label htmlFor="ai-note">What do you need to do?</Label>
+        <Label htmlFor="ai-note" className="gap-1.5">
+          <Sparkles aria-hidden className="size-3.5 text-primary" />
+          What do you need to do?
+        </Label>
         <Textarea
           id="ai-note"
           rows={2}
@@ -67,11 +70,9 @@ export function AiTaskAssist({ onApply }: AiTaskAssistProps) {
         <section
           aria-label="Suggested task"
           aria-live="polite"
-          className="grid gap-2 rounded-md border border-border bg-background p-3"
+          className="grid animate-fade-up gap-2 rounded-lg border border-primary/30 bg-background p-4"
         >
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Suggested task
-          </p>
+          <p className="text-xs font-medium text-muted-foreground">Suggested task</p>
           <p className="font-medium break-words">{suggestion.data.title}</p>
           {suggestion.data.description && (
             <p className="text-sm break-words text-muted-foreground">

@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Dashboard · Task & Time Tracker" };
 
 export default function DashboardPage() {
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-12 px-4 py-8 sm:px-6">
+    <div className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-8 sm:px-6 md:py-10">
       <DailySummary />
       {/* The weekly view reads ?week= from the URL, which needs a Suspense boundary. */}
       <Suspense fallback={<WeeklySkeleton />}>

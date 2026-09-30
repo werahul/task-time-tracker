@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "../format";
+import { LiveDot } from "./live-dot";
 import { timerErrorMessage, useActiveTimer, useStopTimer } from "../hooks/use-active-timer";
 import { useElapsedSeconds } from "../hooks/use-elapsed-seconds";
 
@@ -18,11 +19,11 @@ export function ActiveTimerBanner() {
   return (
     <section
       aria-label="Running timer"
-      className="border-b border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40"
+      className="mx-auto w-full max-w-4xl px-4 pt-4 sm:px-6 md:pt-6"
     >
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
-        <p className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <span className="size-2 shrink-0 rounded-full bg-emerald-500" aria-hidden />
+      <div className="flex animate-fade-up flex-wrap items-center gap-x-4 gap-y-2 rounded-xl surface-accent px-4 py-2.5">
+        <p className="flex min-w-0 flex-1 items-center gap-2.5 text-sm">
+          <LiveDot />
           <span className="text-muted-foreground">Working on:</span>
           <Link href={`/tasks/${timer.taskId}`} className="truncate font-medium hover:underline">
             {timer.task.title}

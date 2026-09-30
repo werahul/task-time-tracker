@@ -13,12 +13,26 @@ export function TopTasks({
   totalSeconds?: number;
 }) {
   return (
-    <ol className="divide-y divide-border rounded-xl border border-border bg-card">
-      {tasks.map((task) => (
-        <li key={task.taskId} className="flex items-center justify-between gap-4 px-4 py-3">
-          <Link href={`/tasks/${task.taskId}`} className="truncate text-sm hover:underline">
-            {task.title}
-          </Link>
+    <ol className="divide-y divide-white/[0.06] overflow-hidden rounded-xl surface">
+      {tasks.map((task, index) => (
+        <li
+          key={task.taskId}
+          className="relative flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.025]"
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span
+              aria-hidden
+              className="w-4 shrink-0 text-right font-mono text-xs text-muted-foreground tabular-nums"
+            >
+              {index + 1}
+            </span>
+            <Link
+              href={`/tasks/${task.taskId}`}
+              className="truncate text-sm font-medium transition-colors hover:text-orange-200"
+            >
+              {task.title}
+            </Link>
+          </span>
           <span className="shrink-0 text-sm tabular-nums">
             <span className="font-medium">{formatDuration(task.trackedSeconds)}</span>
             {totalSeconds ? (
@@ -28,6 +42,13 @@ export function TopTasks({
               </span>
             ) : null}
           </span>
+          {totalSeconds ? (
+            <span
+              aria-hidden
+              className="absolute bottom-0 left-0 h-0.5 bg-primary/60"
+              style={{ width: `${Math.min(100, (task.trackedSeconds / totalSeconds) * 100)}%` }}
+            />
+          ) : null}
         </li>
       ))}
     </ol>

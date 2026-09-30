@@ -14,7 +14,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className="flex min-h-screen items-center justify-center p-6 font-sans">
         <div role="alert" className="grid max-w-md gap-3 text-center">
           <h1 className="text-xl font-semibold">Something went wrong.</h1>
@@ -25,7 +25,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={reset}
-            className="mx-auto rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            className="mx-auto rounded-xl bg-linear-to-b from-orange-400 to-orange-500 px-4 py-2 text-sm font-semibold text-primary-foreground shadow-btn"
           >
             Try again
           </button>

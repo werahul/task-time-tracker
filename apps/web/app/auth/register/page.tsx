@@ -12,11 +12,14 @@ export default function RegisterPage() {
         <CardTitle>Create your account</CardTitle>
         <CardDescription>Start capturing tasks and tracking focused work.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-4">
+      <CardContent className="grid gap-5">
         <RegisterForm />
         <p className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/auth/login" className="text-primary hover:underline">
+          <Link
+            href="/auth/login"
+            className="font-medium text-primary transition-colors hover:text-orange-300"
+          >
             Sign in
           </Link>
         </p>

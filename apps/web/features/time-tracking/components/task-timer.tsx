@@ -12,6 +12,7 @@ import {
   useStopTimer,
 } from "../hooks/use-active-timer";
 import { useElapsedSeconds } from "../hooks/use-elapsed-seconds";
+import { LiveDot } from "./live-dot";
 
 interface TaskTimerProps {
   task: Pick<Task, "id" | "title" | "status">;
@@ -45,14 +46,17 @@ export function TaskTimer({ task, size = "sm" }: TaskTimerProps) {
           >
             <Square className="fill-current" /> {stop.isPending ? "Stopping..." : "Stop timer"}
           </Button>
-          <span
-            role="timer"
-            className={cn(
-              "font-mono font-medium tabular-nums",
-              size === "sm" ? "text-sm" : "text-2xl",
-            )}
-          >
-            {formatClock(elapsed)}
+          <span className="inline-flex items-center gap-2">
+            <LiveDot className={size === "sm" ? "size-2" : undefined} />
+            <span
+              role="timer"
+              className={cn(
+                "font-mono font-medium tabular-nums",
+                size === "sm" ? "text-sm" : "text-3xl tracking-tight",
+              )}
+            >
+              {formatClock(elapsed)}
+            </span>
           </span>
         </>
       ) : (

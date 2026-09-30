@@ -2,21 +2,15 @@
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  CalendarDays,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  ListChecks,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { WeeklySummary as WeeklySummaryData } from "@task-time-tracker/shared";
+import { segmentedClassName } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiRequestError } from "@/lib/api/client";
 import { formatWeekRange, isIsoDate, localIsoDate, shiftIsoDate, startOfWeek } from "../date";
 import { useWeeklySummary } from "../hooks/use-weekly-summary";
-import { StatCard } from "./productivity-stats";
+import { StatCard, StatStrip } from "./productivity-stats";
 import { TopTasks } from "./top-tasks";
 import { WeeklyTaskBreakdown } from "./weekly-task-breakdown";
 import { WeeklyTimeChart } from "./weekly-time-chart";
@@ -49,22 +43,25 @@ export function WeeklySummary() {
   }
 
   return (
-    <section className="grid gap-6" aria-labelledby="weekly-heading">
+    <section
+      className="grid gap-6 border-t border-white/[0.06] pt-10"
+      aria-labelledby="weekly-heading"
+    >
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 id="weekly-heading" className="text-xl font-semibold tracking-tight">
+          <h2 id="weekly-heading" className="text-2xl font-semibold tracking-tight">
             {week === thisWeek ? "This week" : "Week"}
           </h2>
           <p className="text-sm text-muted-foreground">
             {formatWeekRange(week, shiftIsoDate(week, 6))}
           </p>
         </div>
-        <nav aria-label="Choose week" className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => goTo(shiftIsoDate(week, -7))}>
+        <nav aria-label="Choose week" className={segmentedClassName}>
+          <Button variant="ghost" size="sm" onClick={() => goTo(shiftIsoDate(week, -7))}>
             <ChevronLeft /> Previous week
           </Button>
           <Button
-            variant="outline"
+            variant={week === thisWeek ? "soft" : "ghost"}
             size="sm"
             disabled={week === thisWeek}
             onClick={() => goTo(thisWeek)}
@@ -72,7 +69,7 @@ export function WeeklySummary() {
             This week
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={week >= thisWeek}
             onClick={() => goTo(shiftIsoDate(week, 7))}
@@ -111,10 +108,9 @@ function WeeklyContent({ summary }: { summary: WeeklySummaryData }) {
 
   return (
     <>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Clock} label="Total time" value={summary.totalTrackedFormatted} />
+      <StatStrip className="lg:grid-cols-4">
+        <StatCard label="Total time" value={summary.totalTrackedFormatted} />
         <StatCard
-          icon={CalendarDays}
           label="Average / day"
           value={summary.averageDailyFormatted}
           hint={
@@ -123,12 +119,12 @@ function WeeklyContent({ summary }: { summary: WeeklySummaryData }) {
               : "Over 7 days"
           }
         />
-        <StatCard icon={ListChecks} label="Tasks worked on" value={String(summary.tasksWorkedOn)} />
-        <StatCard icon={CheckCircle2} label="Completed" value={String(summary.completedTasks)} />
-      </ul>
+        <StatCard label="Tasks worked on" value={String(summary.tasksWorkedOn)} />
+        <StatCard label="Completed" value={String(summary.completedTasks)} />
+      </StatStrip>
 
       {!hasActivity && (
-        <div className="grid gap-1 rounded-xl border border-dashed border-border px-6 py-6 text-center">
+        <div className="grid gap-1 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-6 text-center">
           <p className="font-medium">No productivity data for this week.</p>
           <p className="text-sm text-muted-foreground">Start a timer when you begin working.</p>
         </div>
@@ -168,7 +164,7 @@ function Section({
   return (
     <section className="grid content-start gap-3">
       <div>
-        <h3 className="font-medium">{title}</h3>
+        <h3 className="text-sm font-semibold tracking-wide text-foreground/90">{title}</h3>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {children}
@@ -180,7 +176,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div
       role="status"
-      className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center text-sm text-muted-foreground"
+      className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-14 text-center text-sm text-muted-foreground"
     >
       {children}
     </div>
@@ -190,14 +186,10 @@ function Notice({ children }: { children: React.ReactNode }) {
 export function WeeklySkeleton() {
   return (
     <div className="grid gap-6" aria-busy aria-label="Loading weekly productivity data">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
-        ))}
-      </div>
+      <Skeleton className="h-24 rounded-xl" />
       <div className="grid gap-8 lg:grid-cols-2">
-        <Skeleton className="h-64 rounded-xl" />
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
+        <Skeleton className="h-72 rounded-xl" />
       </div>
     </div>
   );

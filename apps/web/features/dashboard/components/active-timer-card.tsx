@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Square } from "lucide-react";
+import { ArrowRight, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LiveDot } from "@/features/time-tracking/components/live-dot";
 import { formatClock } from "@/features/time-tracking/format";
 import {
   timerErrorMessage,
@@ -21,14 +22,21 @@ export function ActiveTimerCard() {
   const stop = useStopTimer();
   const elapsed = useElapsedSeconds(active.data?.anchorMs);
 
-  if (active.isPending) return <Skeleton className="h-16 w-full rounded-xl" />;
+  if (active.isPending) return <Skeleton className="h-24 w-full rounded-xl" />;
 
   if (!active.data) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border px-4 py-4">
-        <p className="text-sm text-muted-foreground">No timer running</p>
-        <Link href="/tasks" className="text-sm text-primary hover:underline">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-5 py-5">
+        <p className="flex items-center gap-3 text-sm text-muted-foreground">No timer running</p>
+        <Link
+          href="/tasks"
+          className="group inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-orange-300"
+        >
           Pick a task to start
+          <ArrowRight
+            aria-hidden
+            className="size-4 transition-transform group-hover:translate-x-0.5"
+          />
         </Link>
       </div>
     );
@@ -36,15 +44,23 @@ export function ActiveTimerCard() {
 
   const timer = active.data;
   return (
-    <div className="grid gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-4 dark:border-emerald-900 dark:bg-emerald-950/30">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Link
-          href={`/tasks/${timer.taskId}`}
-          className="min-w-0 flex-1 truncate font-medium hover:underline"
+    <div className="grid gap-2 rounded-xl surface-accent px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+        <div className="grid min-w-0 flex-1 basis-full gap-1 sm:basis-auto">
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LiveDot className="size-2" /> Tracking
+          </span>
+          <Link
+            href={`/tasks/${timer.taskId}`}
+            className="truncate text-lg font-semibold tracking-tight hover:underline"
+          >
+            {timer.task.title}
+          </Link>
+        </div>
+        <span
+          role="timer"
+          className="mr-auto font-mono text-2xl font-medium tracking-tight tabular-nums sm:mr-0 sm:text-3xl"
         >
-          {timer.task.title}
-        </Link>
-        <span role="timer" className="font-mono text-lg font-medium tabular-nums">
           {formatClock(elapsed)}
         </span>
         <Button

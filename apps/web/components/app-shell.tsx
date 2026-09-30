@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Settings, UserRound } from "lucide-react";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import {
+  ChevronsUpDown,
+  History,
+  LayoutDashboard,
+  ListTodo,
+  LogOut,
+  Menu,
+  Settings,
+  X,
+} from "lucide-react";
+import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,9 +31,9 @@ import { ActiveTimerBanner } from "@/features/time-tracking/components/active-ti
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/time-logs", label: "Time logs" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/time-logs", label: "Time logs", icon: History },
 ];
 
 /**
@@ -39,74 +50,147 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [isPending, isError, user, router]);
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader />
-      {/* The dashboard has its own "Currently working" card. */}
-      {user && pathname !== "/dashboard" && <ActiveTimerBanner />}
-      <main className="flex flex-1 flex-col">
-        {isError ? (
-          <div role="alert" className="grid justify-items-center gap-3 p-8 text-center text-sm">
-            <p className="text-destructive">
-              We couldn&apos;t reach the server. Check your connection and try again.
-            </p>
-            <Button variant="outline" size="sm" disabled={isFetching} onClick={() => refetch()}>
-              {isFetching ? "Retrying..." : "Try again"}
-            </Button>
-          </div>
-        ) : user ? (
-          children
-        ) : (
-          <div className="mx-auto grid w-full max-w-3xl gap-3 px-4 py-8 sm:px-6" aria-busy>
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-        )}
-      </main>
+    <div className="flex flex-1">
+      {/* Desktop: a fixed sidebar. Phones/tablets get the same content in a drawer. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar/80 backdrop-blur-xl md:flex">
+        <SidebarContent />
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col md:pl-64">
+        <MobileHeader />
+        {/* The dashboard has its own "Currently working" card. */}
+        {user && pathname !== "/dashboard" && <ActiveTimerBanner />}
+        <main className="flex flex-1 flex-col">
+          {isError ? (
+            <div role="alert" className="grid justify-items-center gap-3 p-8 text-center text-sm">
+              <p className="text-destructive">
+                We couldn&apos;t reach the server. Check your connection and try again.
+              </p>
+              <Button variant="outline" size="sm" disabled={isFetching} onClick={() => refetch()}>
+                {isFetching ? "Retrying..." : "Try again"}
+              </Button>
+            </div>
+          ) : user ? (
+            // Keyed by route so each page fades in as you navigate.
+            <div key={pathname} className="flex flex-1 animate-fade-up flex-col">
+              {children}
+            </div>
+          ) : (
+            <div className="mx-auto grid w-full max-w-3xl gap-3 px-4 py-8 sm:px-6" aria-busy>
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-function AppHeader() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-border">
-      {/* Phones: brand + account menu on one row, nav full-width below. sm+: one row. */}
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-        <Link
-          href="/dashboard"
-          className="order-1 rounded-sm text-sm font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Task & Time Tracker
-        </Link>
-        <nav
-          aria-label="Main"
-          className="order-3 -mx-2.5 flex w-full items-center gap-1 overflow-x-auto sm:order-2 sm:mx-0 sm:w-auto"
-        >
-          {NAV_ITEMS.map(({ href, label }) => {
-            const active = pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
+    <div className="flex w-full flex-col gap-6 p-4">
+      <Link
+        href="/dashboard"
+        onClick={onNavigate}
+        className="rounded-lg px-2 pt-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Brand />
+      </Link>
+
+      <nav aria-label="Main" className="grid gap-0.5">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(`${href}/`);
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "bg-white/[0.06] font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
+              )}
+            >
+              {/* Active indicator: a glowing ember bar on the left edge. */}
+              <span
+                aria-hidden
                 className={cn(
-                  "shrink-0 rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-                  active ? "bg-muted font-medium text-foreground" : "text-muted-foreground",
+                  "absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity duration-150",
+                  active ? "opacity-100" : "opacity-0",
                 )}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="order-2 ml-auto sm:order-3">
-          <UserMenu />
-        </div>
+              />
+              <Icon
+                aria-hidden
+                className={cn(
+                  "size-4 transition-colors",
+                  active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                )}
+              />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="mt-auto">
+        <UserMenu />
       </div>
+    </div>
+  );
+}
+
+function MobileHeader() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-background/75 px-4 py-3 backdrop-blur-xl md:hidden">
+      <Link
+        href="/dashboard"
+        className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Brand />
+      </Link>
+      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+        <DialogPrimitive.Trigger
+          render={<Button variant="outline" size="icon" aria-label="Open navigation" />}
+        >
+          <Menu />
+        </DialogPrimitive.Trigger>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+          <DialogPrimitive.Popup className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-2xl outline-none duration-300 data-open:animate-in data-open:slide-in-from-left data-closed:animate-out data-closed:slide-out-to-left">
+            <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+            <SidebarContent onNavigate={() => setOpen(false)} />
+            <DialogPrimitive.Close
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute top-4 right-3"
+                  aria-label="Close navigation"
+                />
+              }
+            >
+              <X />
+            </DialogPrimitive.Close>
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </header>
   );
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return (
+    (parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "")
+  ).toUpperCase();
 }
 
 function UserMenu() {
@@ -119,11 +203,27 @@ function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="ghost" size="icon" aria-label="Account menu" />}
+        render={
+          <button
+            type="button"
+            aria-label="Account menu"
+            className="flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] p-2.5 text-left outline-none transition-colors hover:border-white/15 hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-white/[0.06]"
+          />
+        }
       >
-        <UserRound />
+        <span
+          aria-hidden
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold text-foreground"
+        >
+          {initials(user.name)}
+        </span>
+        <span className="grid min-w-0 flex-1">
+          <span className="truncate text-sm font-medium">{user.name}</span>
+          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+        </span>
+        <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent side="top" align="start" sideOffset={8}>
         <DropdownMenuGroup>
           <DropdownMenuLabel className="grid text-foreground">
             <span className="truncate font-medium">{user.name}</span>

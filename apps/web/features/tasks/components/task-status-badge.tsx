@@ -4,14 +4,14 @@ import { cn } from "@/lib/utils";
 import { TASK_STATUS_LABELS } from "../task-status";
 
 const STATUS_STYLES: Record<TaskStatus, { icon: typeof Circle; className: string }> = {
-  PENDING: { icon: Circle, className: "bg-muted text-muted-foreground" },
+  PENDING: { icon: Circle, className: "bg-white/[0.05] text-muted-foreground ring-white/10" },
   IN_PROGRESS: {
     icon: CircleDot,
-    className: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+    className: "bg-sky-400/10 text-sky-300 ring-sky-300/20",
   },
   COMPLETED: {
     icon: CheckCircle2,
-    className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+    className: "bg-emerald-400/10 text-emerald-300 ring-emerald-300/20",
   },
 };
 
@@ -21,7 +21,7 @@ export function TaskStatusBadge({ status }: { status: TaskStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
         className,
       )}
     >

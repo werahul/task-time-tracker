@@ -116,7 +116,7 @@ export function TaskForm({
         <FormField id="task-status" label="Status" error={errors.status?.message}>
           <select
             id="task-status"
-            className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            className="h-10 w-full rounded-xl border border-input bg-white/[0.03] px-3 text-sm transition-[border-color,box-shadow] outline-none hover:border-white/20 focus-visible:border-primary/70 focus-visible:ring-4 focus-visible:ring-primary/15 [&>option]:bg-popover"
             {...register("status")}
           >
             {statusOptions.map((status) => (
@@ -134,7 +134,7 @@ export function TaskForm({
         </p>
       )}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>

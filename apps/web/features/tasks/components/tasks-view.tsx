@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { AlertCircle, ClipboardList, Plus } from "lucide-react";
 import { TASK_STATUSES, type TaskStatus } from "@task-time-tracker/shared";
+import { PageHeader } from "@/components/page-header";
+import { segmentedClassName } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -35,23 +37,23 @@ export function TasksView() {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
-          <p className="text-sm text-muted-foreground">Everything you&apos;re working on.</p>
-        </div>
-        <Button onClick={() => setCreating(true)}>
-          <Plus /> New task
-        </Button>
-      </div>
+    <div className="mx-auto grid w-full max-w-4xl gap-6 px-4 py-8 sm:px-6 md:py-10">
+      <PageHeader
+        title="Tasks"
+        description="Everything you're working on."
+        actions={
+          <Button onClick={() => setCreating(true)}>
+            <Plus /> New task
+          </Button>
+        }
+      />
 
-      <div role="group" aria-label="Filter tasks by status" className="flex flex-wrap gap-2">
+      <div role="group" aria-label="Filter tasks by status" className={segmentedClassName}>
         {FILTERS.map(({ value, label }) => (
           <Button
             key={label}
             size="sm"
-            variant={status === value ? "default" : "outline"}
+            variant={status === value ? "soft" : "ghost"}
             aria-pressed={status === value}
             onClick={() => selectFilter(value)}
           >
@@ -95,7 +97,12 @@ export function TasksView() {
           )
         ) : (
           <>
-            <ul className={cn("grid gap-3", tasks.isPlaceholderData && "opacity-60")}>
+            <ul
+              className={cn(
+                "grid gap-3 transition-opacity duration-200",
+                tasks.isPlaceholderData && "opacity-60",
+              )}
+            >
               {tasks.data.items.map((task) => (
                 <TaskCard key={task.id} task={task} />
               ))}
@@ -118,7 +125,7 @@ function TaskListSkeleton() {
   return (
     <ul className="grid gap-3" aria-label="Loading tasks">
       {Array.from({ length: 3 }, (_, i) => (
-        <li key={i} className="grid gap-3 rounded-xl border border-border p-4">
+        <li key={i} className="grid gap-3 rounded-xl surface p-5">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-5 w-24 rounded-full" />
@@ -137,10 +144,15 @@ interface StateMessageProps {
 
 function StateMessage({ icon: Icon, title, description, action }: StateMessageProps) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
-      <Icon className="size-8 text-muted-foreground" aria-hidden />
+    <div className="flex animate-fade-up flex-col items-center gap-4 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-16 text-center">
+      <span
+        aria-hidden
+        className="grid size-11 place-items-center rounded-lg bg-white/[0.04] text-muted-foreground ring-1 ring-white/10"
+      >
+        <Icon className="size-6" />
+      </span>
       <div className="grid gap-1">
-        <h2 className="font-medium">{title}</h2>
+        <h2 className="text-base font-semibold">{title}</h2>
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       </div>
       {action}
@@ -158,7 +170,7 @@ function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="Task pages" className="flex items-center justify-between gap-3">
+    <nav aria-label="Task pages" className="flex items-center justify-between gap-3 pt-2">
       <Button
         variant="outline"
         size="sm"

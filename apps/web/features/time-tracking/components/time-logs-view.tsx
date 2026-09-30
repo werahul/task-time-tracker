@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "@/components/page-header";
+import { segmentedClassName } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { useTimeLogs } from "../hooks/use-time-logs";
 import { TimeLogList } from "./time-log-list";
@@ -36,18 +38,15 @@ export function TimeLogsView() {
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8 sm:px-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Time logs</h1>
-        <p className="text-sm text-muted-foreground">Every session you&apos;ve tracked.</p>
-      </div>
+    <div className="mx-auto grid w-full max-w-4xl gap-6 px-4 py-8 sm:px-6 md:py-10">
+      <PageHeader title="Time logs" description="Every session you've tracked." />
 
-      <div role="group" aria-label="Filter by date" className="flex flex-wrap gap-2">
+      <div role="group" aria-label="Filter by date" className={segmentedClassName}>
         {RANGES.map(({ value, label }) => (
           <Button
             key={value}
             size="sm"
-            variant={range === value ? "default" : "outline"}
+            variant={range === value ? "soft" : "ghost"}
             aria-pressed={range === value}
             onClick={() => selectRange(value)}
           >

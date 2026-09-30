@@ -24,11 +24,13 @@ export default function RouteError({
   return (
     <div
       role="alert"
-      className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-6 py-24 text-center"
+      className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-5 px-6 py-24 animate-fade-up text-center"
     >
-      <AlertTriangle className="size-8 text-muted-foreground" aria-hidden />
+      <span className="grid size-11 place-items-center rounded-lg bg-white/[0.04] text-muted-foreground ring-1 ring-white/10">
+        <AlertTriangle className="size-6" aria-hidden />
+      </span>
       <div className="grid gap-1">
-        <h1 className="text-xl font-semibold tracking-tight">Something went wrong.</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Something went wrong.</h1>
         <p className="text-sm text-muted-foreground">
           An unexpected error stopped this page from loading. Your data is safe.
         </p>
@@ -36,7 +38,11 @@ export default function RouteError({
       </div>
       <div className="flex flex-wrap justify-center gap-2">
         <Button onClick={reset}>Try again</Button>
-        <Button variant="outline" render={<Link href="/dashboard">Go to dashboard</Link>} />
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/dashboard">Go to dashboard</Link>}
+        />
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import { useUpdateTask } from "../hooks/use-tasks";
 import { TASK_STATUS_ACTIONS } from "../task-status";
 import { DeleteTaskDialog, EditTaskDialog } from "./task-dialogs";
 import { TaskStatusBadge } from "./task-status-badge";
+import { cn } from "@/lib/utils";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -29,11 +30,29 @@ export function TaskCard({ task }: { task: Task }) {
   const updateTask = useUpdateTask();
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground">
+    <li
+      className={cn(
+        "group/task relative flex flex-col gap-3 overflow-hidden rounded-xl surface surface-interactive p-5 text-card-foreground",
+        task.status === "COMPLETED" && "opacity-80",
+      )}
+    >
+      {/* Status accent along the left edge. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-4 left-0 w-[3px] rounded-r-full",
+          task.status === "IN_PROGRESS" && "bg-sky-400/80",
+          task.status === "COMPLETED" && "bg-emerald-400/70",
+          task.status === "PENDING" && "bg-white/15",
+        )}
+      />
       <div className="flex items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
-          <h3 className="font-medium break-words">
-            <Link href={`/tasks/${task.id}`} className="hover:underline">
+          <h3 className="text-[0.9375rem] font-semibold break-words">
+            <Link
+              href={`/tasks/${task.id}`}
+              className="transition-colors hover:text-orange-200 focus-visible:underline"
+            >
               {task.title}
             </Link>
           </h3>

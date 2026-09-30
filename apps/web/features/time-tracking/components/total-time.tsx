@@ -16,12 +16,12 @@ export function TotalTime({ taskId, seconds }: { taskId: string; seconds: number
   const running = useElapsedSeconds(runningHere ? active.data?.anchorMs : undefined);
 
   return (
-    <div className="grid gap-1">
+    <div className="grid gap-1 sm:text-right">
       <span className="text-sm text-muted-foreground">Total tracked</span>
       {seconds === undefined ? (
         <Skeleton className="h-7 w-20" />
       ) : (
-        <span className="text-xl font-semibold tabular-nums">
+        <span className="text-3xl font-semibold tracking-tight tabular-nums">
           {formatDuration(seconds + running)}
         </span>
       )}

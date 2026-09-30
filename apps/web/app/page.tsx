@@ -1,22 +1,23 @@
 import Link from "next/link";
-import { CheckCircle2, Clock, LayoutDashboard } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 
 const features = [
   {
-    icon: CheckCircle2,
     title: "Capture tasks",
-    description: "Organize your work into clear, actionable tasks.",
+    description:
+      "Write down what you need to do. Rough notes are fine — the optional AI helper can tidy them into a clear title.",
   },
   {
-    icon: Clock,
     title: "Track focused work",
-    description: "Start and stop real-time timers as you work.",
+    description:
+      "One timer, started from the task you're on. It keeps counting through refreshes and closed tabs.",
   },
   {
-    icon: LayoutDashboard,
     title: "Understand your day",
-    description: "See daily summaries of where your time actually goes.",
+    description:
+      "Daily and weekly summaries show where the hours actually went, not where you planned them to go.",
   },
 ];
 
@@ -24,39 +25,63 @@ export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="text-sm font-semibold tracking-tight">Task & Time Tracker</span>
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3.5">
+          <Brand />
           <nav className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" render={<Link href="/auth/login">Sign in</Link>} />
-            <Button size="sm" render={<Link href="/auth/register">Get started</Link>} />
+            <Button
+              variant="ghost"
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/auth/login">Sign in</Link>}
+            />
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/auth/register">Get started</Link>}
+            />
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center px-6 py-24 text-center">
-        <h1 className="max-w-2xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Task & Time Tracker
-        </h1>
-        <p className="mt-4 max-w-xl text-lg text-muted-foreground text-balance">
-          Capture tasks, track focused work, and understand your daily productivity.
-        </p>
-        <div className="mt-8 flex items-center gap-3">
-          <Button render={<Link href="/auth/register">Get started</Link>} />
-          <Button variant="outline" render={<Link href="/dashboard">View dashboard</Link>} />
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-20 sm:py-28">
+        <div className="max-w-2xl animate-fade-up">
+          <p className="text-sm font-medium text-primary">Task &amp; Time Tracker</p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            Know where your working hours go.
+          </h1>
+          <p className="mt-5 max-w-xl text-lg text-muted-foreground text-pretty">
+            Capture tasks, track focused work, and understand your daily productivity.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Button
+              size="lg"
+              nativeButton={false}
+              render={
+                <Link href="/auth/register">
+                  Get started <ArrowRight />
+                </Link>
+              }
+            />
+            <Button
+              size="lg"
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/dashboard">View dashboard</Link>}
+            />
+          </div>
         </div>
 
-        <div className="mt-20 grid w-full gap-6 sm:grid-cols-3">
-          {features.map(({ icon: Icon, title, description }) => (
-            <div
-              key={title}
-              className="flex flex-col items-center gap-2 rounded-lg border border-border bg-card p-6 text-card-foreground"
-            >
-              <Icon className="size-6 text-primary" />
-              <h2 className="font-medium">{title}</h2>
-              <p className="text-sm text-muted-foreground">{description}</p>
+        <dl className="mt-20 grid gap-x-10 gap-y-8 border-t border-border pt-10 sm:grid-cols-3">
+          {features.map(({ title, description }, index) => (
+            <div key={title} className="grid content-start gap-2">
+              <dt className="flex items-baseline gap-3 font-medium">
+                <span className="font-mono text-xs text-primary tabular-nums">0{index + 1}</span>
+                {title}
+              </dt>
+              <dd className="text-sm leading-relaxed text-muted-foreground">{description}</dd>
             </div>
           ))}
-        </div>
+        </dl>
       </main>
     </div>
   );

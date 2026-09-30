@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Lightbulb } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lightbulb, Timer } from "lucide-react";
+import { segmentedClassName } from "@/components/segmented";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/features/auth/use-auth";
@@ -29,18 +30,18 @@ export function DailySummary() {
     <div className="grid gap-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <p className="text-sm font-medium text-muted-foreground">{formatLongDate(date)}</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">
             {greeting(hour)}
             {firstName ? `, ${firstName}` : ""}
           </h1>
-          <p className="text-sm text-muted-foreground">{formatLongDate(date)}</p>
         </div>
-        <nav aria-label="Choose day" className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setDate(shiftIsoDate(date, -1))}>
+        <nav aria-label="Choose day" className={segmentedClassName}>
+          <Button variant="ghost" size="sm" onClick={() => setDate(shiftIsoDate(date, -1))}>
             <ChevronLeft /> Previous day
           </Button>
           <Button
-            variant="outline"
+            variant={date === today ? "soft" : "ghost"}
             size="sm"
             disabled={date === today}
             onClick={() => setDate(today)}
@@ -48,7 +49,7 @@ export function DailySummary() {
             Today
           </Button>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={date >= today}
             onClick={() => setDate(shiftIsoDate(date, 1))}
@@ -93,7 +94,13 @@ function SummaryContent({ summary }: { summary: DailySummaryState }) {
         {summary.topTasks.length > 0 ? (
           <TopTasks tasks={summary.topTasks} />
         ) : (
-          <div className="grid gap-1 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <div className="grid justify-items-center gap-1 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-12 text-center">
+            <span
+              aria-hidden
+              className="mb-2 grid size-11 place-items-center rounded-xl bg-white/[0.04] text-muted-foreground ring-1 ring-white/10"
+            >
+              <Timer className="size-5" />
+            </span>
             <p className="font-medium">
               {summary.isToday ? "No productivity data yet." : "No time was tracked on this day."}
             </p>
@@ -107,9 +114,9 @@ function SummaryContent({ summary }: { summary: DailySummaryState }) {
       <div className="grid gap-8 md:grid-cols-2">
         {hasActivity && (
           <Section title="Insight">
-            <div className="flex gap-3 rounded-xl border border-border bg-card p-4">
-              <Lightbulb className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden />
-              <ul className="grid gap-1 text-sm">
+            <div className="flex h-full gap-3 rounded-xl surface p-5">
+              <Lightbulb className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <ul className="grid content-center gap-1.5 text-sm leading-relaxed">
                 {summary.insights.map((insight) => (
                   <li key={insight}>{insight}</li>
                 ))}
@@ -119,7 +126,7 @@ function SummaryContent({ summary }: { summary: DailySummaryState }) {
         )}
 
         <Section title="Task status" description="Your open tasks right now">
-          <dl className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-4">
+          <dl className="grid h-full grid-cols-2 gap-4 rounded-xl surface p-5">
             <StatusCount label="Pending" value={summary.pendingTasks} />
             <StatusCount label="In progress" value={summary.inProgressTasks} />
           </dl>
@@ -160,9 +167,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-3">
+    <section className="grid content-start gap-3">
       <div>
-        <h2 className="font-medium">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-wide text-foreground/90">{title}</h2>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
       </div>
       {children}
@@ -174,7 +181,7 @@ function StatusCount({ label, value }: { label: string; value: number }) {
   return (
     <div className="grid gap-1">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+      <dd className="text-3xl font-semibold tracking-tight tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -183,7 +190,7 @@ function Notice({ children }: { children: React.ReactNode }) {
   return (
     <div
       role="status"
-      className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center text-sm text-muted-foreground"
+      className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/[0.015] px-6 py-14 text-center text-sm text-muted-foreground"
     >
       {children}
     </div>
@@ -193,12 +200,8 @@ function Notice({ children }: { children: React.ReactNode }) {
 function DashboardSkeleton() {
   return (
     <div className="grid gap-8" aria-busy aria-label="Loading productivity data">
-      <div className="grid gap-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
-        ))}
-      </div>
-      <Skeleton className="h-16 rounded-xl" />
+      <Skeleton className="h-24 rounded-xl" />
+      <Skeleton className="h-24 rounded-xl" />
       <Skeleton className="h-40 rounded-xl" />
     </div>
   );
