@@ -1,0 +1,39 @@
+{
+  "name": "task-time-tracker",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Task & Time Tracker - a personal productivity SaaS application",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build:shared",
+    "build:shared": "npm run build -w packages/shared",
+    "dev": "npm run build:shared && concurrently -n api,web -c blue,green \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build:shared && npm run build -w apps/api && npm run build -w apps/web",
+    "start": "concurrently -n api,web -c blue,green \"npm run start -w apps/api\" \"npm run start -w apps/web\"",
+    "lint": "npm run lint -w apps/api && npm run lint -w apps/web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run build:shared && npm run typecheck -w apps/api && npm run typecheck -w apps/web",
+    "test": "npm run build:shared && npm run test -w apps/api",
+    "db:generate": "npm run db:generate -w apps/api",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:deploy": "npm run db:deploy -w apps/api",
+    "db:studio": "npm run db:studio -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
+    "db:seed:reset": "npm run db:seed:reset -w apps/api",
+    "test:unit": "npm run build:shared && npm run test:unit -w apps/api",
+    "test:api": "npm run build:shared && npm run test:api -w apps/api",
+    "test:authorization": "npm run build:shared && npm run test:authorization -w apps/api",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

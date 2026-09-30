@@ -1,0 +1,15 @@
+-- Enforce "a user must never have more than one active timer" at the
+-- database level.
+--
+-- An active timer is a TimeLog row where "stoppedAt" IS NULL. Prisma's
+-- schema DSL has no way to express a *partial* unique index (a
+-- `WHERE` clause), so it cannot be declared in schema.prisma — only a
+-- plain `@@unique` covering every row, which would incorrectly forbid a
+-- user from ever having more than one *completed* TimeLog for the same
+-- values. This is why the constraint is added here by hand instead of
+-- through a schema change + `prisma migrate dev`.
+--
+-- Any future edit to schema.prisma will regenerate a diff against this
+-- migration cleanly, since nothing in the Prisma schema itself declares
+-- this index.
+CREATE UNIQUE INDEX "TimeLog_one_active_timer_per_user" ON "TimeLog" ("userId") WHERE "stoppedAt" IS NULL;

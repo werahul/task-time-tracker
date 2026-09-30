@@ -1,0 +1,95 @@
+name: CI
+
+# Validation only: this workflow never deploys. Hosting platforms deploy main
+# after these checks pass (see docs/DEPLOYMENT.md, "CI gate").
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch/PR supersedes the running check.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: task_time_tracker_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Test-only values. The API validates them at startup like any other config.
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/task_time_tracker_test
+      ACCESS_TOKEN_SECRET: ci-only-secret-${{ github.run_id }}-padding-to-meet-the-minimum-length
+      FRONTEND_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Write test env file
+        # vitest.config loads apps/api/.env.test (and refuses non-*_test databases).
+        run: |
+          {
+            echo "NODE_ENV=test"
+            echo "DATABASE_URL=$DATABASE_URL"
+            echo "ACCESS_TOKEN_SECRET=$ACCESS_TOKEN_SECRET"
+            echo "FRONTEND_URL=$FRONTEND_URL"
+          } > apps/api/.env.test
+
+      - name: Migrations match schema.prisma
+        # Replays every committed migration into a scratch database and fails if
+        # the result differs from the schema (a model change without a migration).
+        working-directory: apps/api
+        env:
+          ADMIN_URL: postgresql://postgres:postgres@localhost:5432/postgres
+          SHADOW_URL: postgresql://postgres:postgres@localhost:5432/shadow_test
+        run: |
+          echo "CREATE DATABASE shadow_test;" | npx prisma db execute --url "$ADMIN_URL" --stdin
+          npx prisma migrate diff --exit-code --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_URL"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests (API + authorization, real PostgreSQL)
+        # The test setup applies every migration to an empty database first,
+        # so this also proves the schema bootstraps from zero.
+        run: npm run test:api && npm run test:authorization
+
+      - name: Build (shared → api → web)
+        run: npm run build

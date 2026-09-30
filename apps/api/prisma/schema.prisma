@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  tasks    Task[]
+  timeLogs TimeLog[]
+  sessions Session[]
+}
+
+/// A refresh-token session. Only the SHA-256 hash of the refresh token is
+/// stored; the raw token lives exclusively in the client's HttpOnly cookie.
+/// Rotation revokes the current row (revokedAt) and inserts a new one.
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model Task {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @db.Uuid
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+  /// Set by the service when the task becomes COMPLETED, cleared when reopened.
+  /// A CHECK constraint (*_task_completed_at) keeps it in step with status.
+  completedAt DateTime?  @db.Timestamptz
+  createdAt   DateTime   @default(now()) @db.Timestamptz
+  updatedAt   DateTime   @updatedAt @db.Timestamptz
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  timeLogs TimeLog[]
+
+  // Target of TimeLog's composite FK, which guarantees a log's user owns its task.
+  @@unique([id, userId])
+  // Serve the task list: WHERE userId [AND status] ORDER BY createdAt DESC.
+  // Their leading userId column also covers plain per-user lookups and the
+  // FK cascade from User, so no separate userId index is needed.
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+  // Daily summary: tasks completed within a day.
+  @@index([userId, completedAt])
+}
+
+/// An active timer is a TimeLog with stoppedAt = NULL. A user must never have
+/// more than one active timer at a time. Prisma's schema DSL cannot express a
+/// partial unique index (`WHERE "stoppedAt" IS NULL`), so that constraint is
+/// added by hand in the migration SQL — see
+/// prisma/migrations/*_add_active_timer_partial_unique_index. Do not add a
+/// `@@unique` here; it would fight the hand-written migration on the next
+/// `prisma migrate dev`.
+model TimeLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  taskId          String    @db.Uuid
+  startedAt       DateTime  @db.Timestamptz
+  stoppedAt       DateTime? @db.Timestamptz
+  /// 0 while running; set by the server on stop. CHECK constraints (hand-written
+  /// migration *_time_log_integrity) enforce >= 0 and consistency with the timestamps.
+  durationSeconds Int       @default(0)
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Composite FK: the referenced task must belong to this log's user.
+  task Task @relation(fields: [taskId, userId], references: [id, userId], onDelete: Cascade)
+
+  // User's logs newest-first (optionally by date range) + cascade from User.
+  @@index([userId, startedAt])
+  // A task's logs newest-first, SUM per task, + cascade from Task.
+  @@index([taskId, startedAt])
+  // Daily summary overlap query: logs that end after the day starts
+  // (stoppedAt > dayStart) — small for recent days, unlike a startedAt scan.
+  @@index([userId, stoppedAt])
+  // "Active timer for user" is served by the partial unique index
+  // TimeLog_one_active_timer_per_user (WHERE stoppedAt IS NULL).
+}
