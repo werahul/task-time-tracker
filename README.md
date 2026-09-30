@@ -1,311 +1,206 @@
 # Task & Time Tracker
 
-Capture tasks, track focused work, and understand where your time goes.
+A small productivity app: write down tasks, run a timer while you work on them, and see where the time went each day and week.
 
-## Overview
+**Live:** https://task-time-tracker-nk77.vercel.app — register an account, it takes a few seconds. The API runs on Render's free tier and sleeps when idle, so the first request after a quiet spell can take up to a minute.
 
-A personal-productivity web app built as a technical evaluation project: a Next.js frontend and an Express REST API over PostgreSQL. Users write tasks (optionally tidied up by an AI assistant), time their work with a server-owned timer, and review daily and weekly productivity figures computed in SQL.
+![Dashboard with the daily summary and weekly analytics](docs/screenshots/dashboard.png)
 
-The focus is engineering quality rather than feature count: strict per-user data isolation, invariants enforced by the database, timezone-correct analytics, an AI integration that can only suggest, and production hardening (validation, standardized errors, rate limits, structured logs, health checks, graceful shutdown, CI, OpenAPI docs).
+It's a Next.js frontend talking to an Express + PostgreSQL API, in one npm-workspaces repo. The feature list is deliberately short. Most of the effort went into the parts that are easy to get subtly wrong in a time tracker: a timer that stays correct across tabs, reloads and devices; exactly one running timer per user, even under concurrent requests; sessions that cross midnight or a DST change; and making sure one user can never see another's data.
 
-- **Live demo:** see [Live Demo](#live-demo) · **5-minute tour:** [docs/EVALUATION.md](docs/EVALUATION.md) · **Deploying:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+If you're reviewing this, [docs/EVALUATION.md](docs/EVALUATION.md) is a five-minute guided tour and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) is the deployment runbook.
 
-![Dashboard: daily summary and weekly analytics](docs/screenshots/dashboard.png)
+## What it does
 
-### Engineering Highlights
+- Accounts with email and password. Sessions live in HttpOnly cookies.
+- Tasks move `PENDING → IN_PROGRESS → COMPLETED` (and can be reopened), with filtering by status and pagination.
+- An optional AI helper turns a rough note ("need to finish login stuff and test it") into a clean title and description. It only fills in the form; you still review and save the task yourself.
+- One timer at a time. Starting a timer on a pending task moves it to in progress, and completing a task stops its timer.
+- A daily summary for any past day: time tracked, tasks worked on, completions, top tasks and a couple of plain-language insights.
+- A weekly view (Monday to Sunday) with a per-day chart and table, a daily average, and each task's share of the week. The selected week is in the URL (`?week=`), so it can be linked to.
 
-- **HttpOnly cookie sessions:** short-lived access JWT plus an opaque refresh token that rotates on every use; JavaScript never sees either.
-- **Hashed refresh tokens:** only a SHA-256 hash is stored; rotation is a conditional update, so a replayed or raced token can't mint a second session.
-- **Resource-level authorization:** every query carries the owner's `userId`; another user's task is a 404 indistinguishable from a missing one, tested in both directions for every endpoint.
-- **Server-authoritative timer:** the server sets every timestamp and duration; the client only renders `now − anchor` from a server-computed elapsed time.
-- **Database-enforced invariants:** a partial unique index guarantees one running timer per user, even under concurrent requests; CHECKs keep durations and `completedAt` consistent.
-- **PostgreSQL aggregation:** daily and weekly analytics are computed in SQL with timezone-correct, midnight-splitting day windows; the browser receives a small JSON summary.
-- **Zod everywhere:** one schema per request, shared by the API, the web forms and the OpenAPI document; a contract test checks real responses against the docs.
-- **Structured error handling:** one error envelope, stable error codes, generic 500s (never Prisma/SQL text) and request ids that tie UI errors to server logs.
-- **Automated CI:** migration-drift check, typecheck, lint, format, unit and integration tests on real PostgreSQL, and a production build on every PR.
-- **AI behind an abstraction:** the provider returns untrusted data that is validated, time-limited and rate-limited; the AI suggests, and the user decides.
+The UI is dark with an orange accent, uses a sidebar on desktop and a drawer on phones, and respects `prefers-reduced-motion`.
 
-## Core Features
-
-- **Accounts:** register, log in, log out; HttpOnly cookie sessions (15-minute access token, rotating 7-day refresh token).
-- **Tasks:** create, edit, delete; `PENDING → IN_PROGRESS → COMPLETED` with guarded transitions; status filter and pagination.
-- **AI task assistant** (optional): turns a rough note into a clear title and description; the user reviews and edits before anything is saved.
-- **Time tracking:** one running timer per user; a live clock that survives refresh, navigation and sleep; per-task session history and totals.
-- **Daily summary:** time tracked, tasks worked on, completions, open workload, top tasks and plain-language insights for any past day.
-- **Weekly analytics:** Monday–Sunday totals, average per day, a per-day chart and table, and top tasks with their share of the week; shareable via `?week=`.
-
-## Why This Project
-
-Time tracking looks simple but hides real engineering problems: a timer must stay correct across tabs, devices and clock drift; two requests must never start two timers; a session that crosses midnight belongs to two days; one user must never see another's data; and analytics must be derived from trustworthy history, not recomputed in the browser. Each of those is solved at the layer that can guarantee it, and covered by tests.
-
-## Architecture
-
-```text
-                  Next.js (apps/web)
-                         │
-                         │ HTTPS · JSON · HttpOnly cookies
-                         ▼
-                Express REST API /api/v1
-                         │
-        ┌────────────────┼────────────────┐
-        ▼                ▼                ▼
-      Auth             Tasks          Dashboard
-                         │           (daily + weekly)
-                         ▼
-                   Time Tracking
-                         │
-                         ▼
-             PostgreSQL (Prisma migrations)
-          FKs · CHECKs · partial unique index
-
-                 AI Provider (optional)
-     ◄── Task suggestion only; never touches the database
-```
-
-- **Layers:** every module is `routes → controller → service → repository` (plus `schema`, `types`, `errors`). Controllers never touch the database, services never import Prisma, `userId` never comes from request input, and repositories never fetch a task or log by id alone. `tests/unit/architecture.test.ts` enforces these rules.
-- **Request lifecycle:** request id → logger → security headers → CORS → size limits → cookies → Origin check → rate limit → authenticate → validate → controller → service → repository. One error handler emits the standard error envelope.
-- **Frontend:** the TanStack Query cache is the only client copy of server state. Mutations invalidate the affected queries. Nothing is computed in React that the API already computes.
-- **Production:** frontend and API deploy separately against managed PostgreSQL. When they are on different sites, the web app proxies `/api/v1` so auth cookies stay first-party ([details](docs/DEPLOYMENT.md#1-choose-a-topology)).
-
-## Tech Stack
-
-| Layer    | Choices                                                                                                        |
-| -------- | -------------------------------------------------------------------------------------------------------------- |
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, shadcn/ui (Base UI), TanStack Query, RHF + Zod |
-| Backend  | Node.js 20+, Express 5, TypeScript, Zod, Prisma 6, Argon2id, JWT, pino, helmet, express-rate-limit             |
-| Database | PostgreSQL 14+                                                                                                 |
-| AI       | Anthropic SDK behind a provider-agnostic interface (optional)                                                  |
-| Docs     | OpenAPI 3 generated from the Zod schemas, Swagger UI                                                           |
-| Tooling  | npm workspaces, Vitest + Supertest (real PostgreSQL), ESLint, Prettier, GitHub Actions                         |
-
-## Project Structure
-
-```text
-task-time-tracker/
-├── apps/
-│   ├── web/                     # Next.js frontend
-│   │   ├── app/                 # routes; (app)/ = signed-in shell
-│   │   ├── features/            # auth/, tasks/, time-tracking/, dashboard/ → api/, hooks/, components/
-│   │   ├── components/          # shadcn/ui primitives, app shell
-│   │   └── lib/api/             # fetch client (cookies, silent refresh) + one error-message policy
-│   └── api/                     # Express backend
-│       ├── prisma/              # schema.prisma, migrations/ (incl. hand-written SQL), seed.ts
-│       ├── src/modules/         # auth/, tasks/ (+ ai/), time-tracking/, dashboard/
-│       ├── src/{config,lib,middleware,routes,docs}/
-│       └── tests/               # unit/, api/, authorization/
-├── packages/shared/             # contracts shared by both apps: Zod request schemas, response types, formatters
-├── scripts/smoke-test.sh        # end-to-end check of a running deployment
-├── docs/                        # DEPLOYMENT.md, EVALUATION.md
-└── .github/workflows/ci.yml
-```
-
-## Database Design
-
-```text
-User 1──N Task 1──N TimeLog        User 1──N TimeLog        User 1──N Session
-```
-
-- **User:** UUID, name, unique lowercased email, Argon2id hash. **Session:** SHA-256 of the refresh token, `expiresAt`, `revokedAt`.
-- **Task:** title, description, status, `completedAt` (set by the server on completion, cleared on reopen).
-- **TimeLog:** `startedAt`, nullable `stoppedAt` (null = running), `durationSeconds`.
-- All timestamps are `timestamptz`. Deletes cascade `User → Task → TimeLog` and `User → Session`.
-- Indexes match real queries: tasks `(userId, createdAt)`, `(userId, status, createdAt)`, `(userId, completedAt)`; logs `(userId, startedAt)`, `(taskId, startedAt)`, `(userId, stoppedAt)`.
-
-| Invariant (enforced by PostgreSQL) | Mechanism                                                         |
-| ---------------------------------- | ----------------------------------------------------------------- |
-| At most one running timer per user | Partial unique index `("userId") WHERE "stoppedAt" IS NULL`       |
-| A log's user owns its task         | Composite FK `("taskId","userId") → Task("id","userId")`          |
-| Durations are valid                | `CHECK`s: `>= 0`, `stoppedAt >= startedAt`, duration = timestamps |
-| `completedAt` is set iff COMPLETED | `CHECK (("status" = 'COMPLETED') = ("completedAt" IS NOT NULL))`  |
-
-Partial indexes and CHECKs are hand-written SQL inside the versioned migrations, because Prisma's schema language can't express them. CI replays every migration into an empty database and fails if the result drifts from `schema.prisma`.
-
-## Authentication & Security
-
-- **Passwords:** Argon2id (OWASP baseline). Login answers unknown email and wrong password identically, with equal timing.
-- **Sessions:** a 15-minute HS256 access JWT and an opaque refresh token stored only as a hash. The refresh token rotates on every use in one transaction, so a replayed token can't mint a session. Logout revokes the session.
-- **Cookies:** both tokens are `HttpOnly` (never in JS or `localStorage`), `Secure` in production and `SameSite=Lax`. The refresh cookie is scoped to `Path=/api/v1/auth`.
-- **CSRF**, in layers: SameSite cookies; state-changing requests from any `Origin` outside `FRONTEND_URL` are rejected (403); credentialed CORS for an exact allow-list only; JSON-only bodies.
-- **Authorization:** ownership lives in the SQL `WHERE` of every query. Another user's resource returns a 404 identical to a missing one. The test suite checks every endpoint in both directions (A→B and B→A).
-- **Hardening:** Zod validation on every input; body/URL size limits; per-IP and per-user (AI) rate limits; helmet headers; sanitized errors (never Prisma/SQL text); secrets redacted from logs; config validated at startup (the API refuses to start with weak or placeholder secrets, or `http://` origins in production).
-
-## API Documentation
-
-Interactive docs: **`/api/v1/docs`** (Swagger UI) and `/api/v1/openapi.json`, on by default in development. The documented request schemas _are_ the validation schemas, and a contract test parses real responses against the documented response schemas.
-
-| Area      | Endpoints (base `/api/v1`)                                                                                                             |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Auth      | `POST /auth/register` · `POST /auth/login` · `POST /auth/logout` · `POST /auth/refresh` · `GET /auth/me`                               |
-| Tasks     | `GET /tasks` · `POST /tasks` · `GET /tasks/:id` · `PATCH /tasks/:id` · `DELETE /tasks/:id` · `POST /tasks/suggest`                     |
-| Time      | `POST /tasks/:id/timer/start` · `POST /tasks/:id/timer/stop` · `GET /tasks/:id/time-logs` · `GET /time-logs` · `GET /time-logs/active` |
-| Dashboard | `GET /dashboard/daily-summary?date=&timezone=` · `GET /dashboard/weekly-summary?startDate=&timezone=`                                  |
-| Health    | `GET /health` (liveness) · `GET /health/ready` (readiness: database reachable, not shutting down)                                      |
-
-- **Envelope:** `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"?, "requestId"? } }`. Every response carries `X-Request-ID`.
-- **Status codes:** 200/201/204; 400 malformed; 401 unauthenticated; 403 untrusted Origin; 404 not found (including other users' data); 409 business conflict (e.g. `ACTIVE_TIMER_EXISTS`); 413/414 too large; 422 validation; 429 rate limited; 500 unexpected (generic); 502/503/504 controlled AI or dependency failures. The full error-code list is in the OpenAPI document.
-- **Pagination:** `?page=1&limit=20` → `{ items, pagination: { page, limit, total, totalPages } }`.
-
-## AI Task Assistant
-
-> AI suggests; the application decides.
-
-`POST /tasks/suggest { "input": "…" }` returns `{ title, description }`. It never reads or writes data. The suggestion fills the normal task form, and `POST /tasks` stays the only way to create a task.
-
-- **Isolation:** `lib/ai` defines a provider interface returning _untrusted_ output. The service adds a hard timeout, Zod validation against the task-creation rules, error categorization and content-free logging. Swapping providers means writing one adapter.
-- **Safety:** only the typed note is sent; the input is delimited and treated as content; the model has no tools; the output is stripped to two fields; there is a per-user rate limit.
-- **Two providers:** `AI_PROVIDER=gemini` uses Google's Gemini API, which has a **free tier** (a key from [Google AI Studio](https://aistudio.google.com/apikey), no billing); `AI_PROVIDER=anthropic` uses Claude (paid credit). Both adapters sit behind the same interface, with the same deadline, validation and rate limit.
-- **Optional:** with `AI_PROVIDER` unset the endpoint returns 503 `AI_CONFIGURATION_ERROR`, the UI explains that, and everything else works.
-
-## Time Tracking Architecture
-
-> The frontend displays the timer; the backend owns it.
-
-- **Server time only.** `startedAt`, `stoppedAt` and `durationSeconds` come from the server; start and stop accept no body.
-- **One running timer**, guaranteed by the partial unique index. If two starts race, the index rejects the loser (→ 409) and its transaction rolls back. Stop is a conditional update, so two concurrent stops can't both succeed.
-- **Rules.** Starting moves `PENDING → IN_PROGRESS`; completed tasks can't be timed, so completing a task stops its running timer at the completion instant (same transaction); deleting a task deletes its logs.
-- **Accurate display without WebSockets.** `/time-logs/active` returns a server-computed elapsed time (`elapsedSeconds`, plus `elapsedMs` so re-anchoring after a reload never loses the sub-second fraction). The client anchors to it and renders `now − anchor` every second (derived, never incremented), and refetches on focus, reconnect and every 60 s.
-- **Sessions survive idle tabs.** When the 15-minute access cookie expires, the browser stops sending it; the client treats that 401 like an expired token and silently rotates the refresh token before retrying.
-- **Analytics in SQL.** Days and weeks are half-open ranges `[start, end)` in the viewer's IANA timezone, computed by PostgreSQL, so DST days are exactly 23 h or 25 h. Sessions crossing midnight are clipped to each day, and a running timer counts up to "now". The weekly view is built from 7 per-day windows (`generate_series`); its total is their sum, and its average is total ÷ days elapsed so far. Completions are counted by `completedAt`, so historical figures stay correct after a task is reopened.
-
-## Screenshots
-
-| Tasks                                    | Running timer (survives reload)                             | Mobile                                                     |
+| Tasks                                    | Running timer                                               | Phone                                                      |
 | ---------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------- |
 | ![Task list](docs/screenshots/tasks.png) | ![Task with running timer](docs/screenshots/task-timer.png) | ![Mobile dashboard](docs/screenshots/mobile-dashboard.png) |
 
-The full dashboard is shown at the top of this README. All screenshots use the seeded demo account.
+## Running it locally
 
-## Local Development
-
-**Prerequisites:** Node.js 20+ (22 recommended), npm 10+, PostgreSQL 14+.
+You need Node.js 20+ (22 recommended), npm 10+ and PostgreSQL 14+.
 
 ```bash
 git clone <repository-url> task-time-tracker && cd task-time-tracker
 npm install                                   # also generates the Prisma client and builds packages/shared
 
-cp apps/api/.env.example apps/api/.env        # then edit DATABASE_URL and ACCESS_TOKEN_SECRET
+cp apps/api/.env.example apps/api/.env        # set DATABASE_URL and ACCESS_TOKEN_SECRET
 cp apps/web/.env.example apps/web/.env.local
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"   # → ACCESS_TOKEN_SECRET
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"   # a good ACCESS_TOKEN_SECRET
 
 psql -U postgres -c "CREATE DATABASE task_time_tracker;"
-npm run db:deploy                             # apply all migrations
-npm run db:seed                               # optional demo user (see Demo Credentials)
+npm run db:deploy                             # apply migrations
+npm run db:seed                               # optional: demo@example.com / demo-password-123
 
-npm run dev                                   # web http://localhost:3000 · API http://localhost:5000/api/v1
+npm run dev                                   # web on :3000, API on :5000
 ```
 
-Open http://localhost:3000 and register, or sign in as the demo user. API docs: http://localhost:5000/api/v1/docs.
+Swagger UI is at http://localhost:5000/api/v1/docs.
 
-| Command                             | What it does                                                                  |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `npm run verify`                    | typecheck → lint → format check → all tests → production build (what CI runs) |
-| `npm test`                          | all API tests (`test:unit`, `test:api`, `test:authorization` for subsets)     |
-| `npm run build` / `npm start`       | production build of shared → api → web / run both builds                      |
-| `npm run db:migrate`                | create a new migration after editing `schema.prisma` (development)            |
-| `npm run db:deploy`                 | apply committed migrations (setup, CI, production)                            |
-| `npm run db:seed` / `db:seed:reset` | create the demo user if missing / rebuild its data (development only)         |
+| Command                             | What it does                                                         |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `npm run verify`                    | typecheck, lint, format check, all tests, production build (as CI)   |
+| `npm test`                          | API tests; `test:unit`, `test:api`, `test:authorization` for subsets |
+| `npm run build` / `npm start`       | build shared → api → web / run both builds                           |
+| `npm run db:migrate`                | author a migration after editing `schema.prisma`                     |
+| `npm run db:deploy`                 | apply committed migrations (local setup, CI, production)             |
+| `npm run db:seed` / `db:seed:reset` | create the demo user if missing / rebuild its data (dev only)        |
 
-`packages/shared` compiles to `dist/`. It is rebuilt by `install`, `dev`, `build`, `typecheck` and `test`; if you edit it while `npm run dev` is running, run `npm run build:shared`.
+`packages/shared` compiles to `dist/`. It's rebuilt by `install`, `dev`, `build`, `typecheck` and `test`. If you change it while `npm run dev` is running, run `npm run build:shared`.
 
-## Environment Variables
+AI is off unless you configure it. Setting `AI_PROVIDER=gemini` with a key from [Google AI Studio](https://aistudio.google.com/apikey) works on Gemini's free tier, no billing needed. `AI_PROVIDER=anthropic` uses Claude instead.
 
-The API validates its configuration at startup and refuses to start on a missing or invalid value, naming the variable but never printing its value. Every variable is documented in [`.env.example`](.env.example); each app has its own template where its env file is read.
+## How it's put together
 
-| Variable                                               | Default (dev → prod)           | Notes                                                                                                          |
-| ------------------------------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                             | `development`                  | `production` enables Secure cookies, HSTS and stricter checks                                                  |
-| `PORT`                                                 | `5000`                         |                                                                                                                |
-| `DATABASE_URL`                                         | required                       | PostgreSQL connection string                                                                                   |
-| `ACCESS_TOKEN_SECRET`                                  | required                       | ≥ 32 chars (≥ 64 in production); placeholders are rejected                                                     |
-| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | `15m` / `7d`                   |                                                                                                                |
-| `FRONTEND_URL`                                         | `http://localhost:3000`        | Exact origin allow-list (comma-separated); `https://` in production                                            |
-| `COOKIE_SAME_SITE`                                     | `lax`                          | Keep `lax`; see [topology](docs/DEPLOYMENT.md#1-choose-a-topology)                                             |
-| `TRUST_PROXY`                                          | `0` → `1`                      | Proxy hops in front of the API (2 behind the web proxy)                                                        |
-| `APP_TIMEZONE`                                         | `UTC`                          | Fallback when the client sends no timezone                                                                     |
-| `API_DOCS_ENABLED`                                     | `true` → `false`               | Swagger UI and `openapi.json`                                                                                  |
-| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL`              | unset / — / per provider       | `gemini` (free tier) or `anthropic`; unset = AI off. Model defaults: `gemini-3.5-flash-lite` / `claude-opus-5` |
-| Rate limits, timeouts, `LOG_LEVEL`                     | see `.env.example`             |                                                                                                                |
-| `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD`               | `demo@example.com` / dev-only  | Seed only; the password is required in production                                                              |
-| `NEXT_PUBLIC_API_URL` (web)                            | `http://localhost:5000/api/v1` | Build-time; `https://…` or `/api/v1` (proxy). Invalid values fail the build                                    |
-| `API_PROXY_URL` (web, server-side)                     | unset                          | API origin for the same-origin `/api/v1` proxy                                                                 |
+```text
+apps/web            Next.js 16 · React 19 · Tailwind v4 · shadcn/ui (Base UI) · TanStack Query · RHF + Zod
+   │  JSON over HTTPS, HttpOnly cookies
+   ▼
+apps/api            Express 5 · Zod · Prisma 6 · Argon2id · JWT · pino
+   │                modules: auth · tasks (+ ai) · time-tracking · dashboard
+   ▼
+PostgreSQL          constraints and indexes that the app relies on, not just the ORM
 
-Nothing secret is ever `NEXT_PUBLIC_`; a check of the production bundle finds no server variables in it.
+packages/shared     Zod request schemas, response types and formatters used by both apps
+```
 
-## Database Setup
+Every API module has the same shape: `routes → controller → service → repository`. Controllers never touch the database, services don't import Prisma, `userId` always comes from the verified session (never from the request), and repositories never fetch a task or log by id alone. `tests/unit/architecture.test.ts` fails the build if any of those rules is broken, so they don't erode over time.
 
-- **Migrations are versioned** in `apps/api/prisma/migrations` and committed. Use `npm run db:migrate` to author one and `npm run db:deploy` (`prisma migrate deploy`) to apply them anywhere else. `prisma db push` is never used. `npm run db:status -w apps/api` shows pending migrations.
-- **From zero:** an empty database needs only `npm run db:deploy`. CI proves this on every run, because the test setup migrates an empty database before any test.
-- **Seed:** `npm run db:seed` creates a fictional demo user with a week of tasks and sessions. It is **non-destructive**: if the demo user exists, nothing changes. `npm run db:seed:reset` rebuilds the demo user's data and is refused when `NODE_ENV=production`. In production the password must come from `DEMO_USER_PASSWORD`.
-- **Housekeeping:** `npm run db:cleanup-sessions -w apps/api` deletes expired and revoked sessions; schedule it daily in production.
+On the frontend, the TanStack Query cache is the only client-side copy of server state. Mutations invalidate what they affect, and the UI doesn't recompute numbers the API already computed.
 
-## Testing
+```text
+task-time-tracker/
+├── apps/web/            app/ (routes), features/{auth,tasks,time-tracking,dashboard}, components/, lib/api/
+├── apps/api/            prisma/ (schema, migrations, seed), src/modules/, src/{config,lib,middleware,routes,docs}/, tests/
+├── packages/shared/
+├── scripts/smoke-test.sh
+└── docs/                DEPLOYMENT.md, EVALUATION.md, screenshots/
+```
+
+## The decisions that matter
+
+### The server owns the timer
+
+Client clocks drift, sleep and can be changed, so the browser never decides how long anything took. Start and stop take no body. The server records `startedAt` and `stoppedAt` and computes the duration. `GET /time-logs/active` returns the elapsed time the server calculated, and the client anchors to it and renders `now − anchor` once a second. That means a reload, a sleeping laptop or a second tab all show the same number. The client also refetches on focus, on reconnect and every 60 seconds, which is enough to pick up a timer stopped on another device without adding WebSockets.
+
+"One running timer per user" is a partial unique index (`("userId") WHERE "stoppedAt" IS NULL`), not an `if` in the service. When two start requests race, the database rejects the second (it becomes a 409) and its transaction rolls back. Stop is a conditional update, so two concurrent stops can't both succeed.
+
+### The database enforces the invariants
+
+```text
+User 1──N Task 1──N TimeLog        User 1──N Session
+```
+
+| Rule                                   | How it's enforced                                                 |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| At most one running timer per user     | partial unique index                                              |
+| A time log belongs to its task's owner | composite FK `("taskId","userId") → Task("id","userId")`          |
+| Durations are consistent               | `CHECK`s: `>= 0`, `stoppedAt >= startedAt`, duration = timestamps |
+| `completedAt` is set iff `COMPLETED`   | `CHECK (("status" = 'COMPLETED') = ("completedAt" IS NOT NULL))`  |
+
+Prisma can't express partial indexes or CHECK constraints, so they're hand-written SQL inside the versioned migrations. CI replays every migration into an empty database and fails if the result drifts from `schema.prisma`. All timestamps are `timestamptz`, deletes cascade from user to tasks to logs, and the indexes match the queries the app actually runs.
+
+### Analytics are computed in SQL
+
+A day is a half-open range `[start, end)` in the viewer's IANA timezone, calculated by PostgreSQL, so DST days come out as 23 or 25 hours rather than being off by one. Sessions that cross midnight are split between the two days, and a running timer counts up to "now". The weekly view is seven of those day windows (`generate_series`): the total is their sum, and the average divides by the days elapsed so far. Completions count by `completedAt`, so last week's numbers don't change if you reopen a task today. The browser gets back a small JSON summary instead of every log.
+
+### Auth stays out of JavaScript
+
+Passwords are hashed with Argon2id. Login responds identically, with equal timing, to an unknown email and a wrong password. A session is a 15-minute access JWT plus an opaque refresh token. Both are HttpOnly cookies, `Secure` in production and `SameSite=Lax`, and the refresh cookie is scoped to `/api/v1/auth`. Only a SHA-256 hash of the refresh token is stored. It rotates on every use inside one transaction, so a replayed token can't mint a second session. When the access cookie expires, the client refreshes quietly and retries.
+
+Every query includes the owner's `userId` in its `WHERE` clause. Asking for someone else's task returns the same 404 as a task that doesn't exist, and the authorization test suite checks every task-scoped endpoint in both directions (user A → user B, and B → A).
+
+State-changing requests from an `Origin` outside `FRONTEND_URL` are rejected. CORS is an exact allow-list and bodies must be JSON. On top of that there are request size limits, per-IP rate limits (plus a per-user limit on AI), helmet headers, and error responses that never contain Prisma or SQL text. The API refuses to start with a missing, weak or placeholder secret, or with `http://` origins in production.
+
+In production the web app (Vercel) and the API (Render) sit on different sites, and browsers increasingly block third-party cookies. So the Next.js app proxies `/api/v1` to the API, which keeps the cookies first-party instead of depending on `SameSite=None`.
+
+### AI can only suggest
+
+`POST /tasks/suggest` takes a note and returns `{ title, description }`. It never reads or writes data; `POST /tasks` is still the only way to create a task. The provider sits behind a small interface whose output is treated as untrusted: the service applies a hard timeout, validates the result against the same rules as task creation, strips it to two fields and logs without content. Only the note itself is sent, clearly delimited, and the model has no tools. Gemini and Anthropic adapters share that path, so switching providers is a config change. With no provider configured the endpoint returns 503 `AI_CONFIGURATION_ERROR`, the form says so, and everything else keeps working.
+
+## API
+
+Base path `/api/v1`. The OpenAPI document is generated from the same Zod schemas that validate requests, and a contract test checks real responses against it. Swagger UI is on by default in development and off in production.
+
+| Area      | Endpoints                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth      | `POST /auth/register` · `POST /auth/login` · `POST /auth/logout` · `POST /auth/refresh` · `GET /auth/me`                               |
+| Tasks     | `GET /tasks` · `POST /tasks` · `GET /tasks/:id` · `PATCH /tasks/:id` · `DELETE /tasks/:id` · `POST /tasks/suggest`                     |
+| Time      | `POST /tasks/:id/timer/start` · `POST /tasks/:id/timer/stop` · `GET /tasks/:id/time-logs` · `GET /time-logs` · `GET /time-logs/active` |
+| Dashboard | `GET /dashboard/daily-summary?date=&timezone=` · `GET /dashboard/weekly-summary?startDate=&timezone=`                                  |
+| Health    | `GET /health` (liveness) · `GET /health/ready` (database reachable, not shutting down)                                                 |
+
+Responses are `{ "success": true, "data": … }` or `{ "success": false, "error": { "code", "message", "details"?, "requestId"? } }`, and every response carries `X-Request-ID`, so an error in the UI can be traced to a log line. Lists take `?page=&limit=` and return `{ items, pagination }`. Error codes are stable (for example `ACTIVE_TIMER_EXISTS` → 409) and all of them are listed in the OpenAPI document.
+
+## Configuration
+
+The API validates its environment at startup and exits on anything missing or invalid, naming the variable without printing its value. Everything is documented in [`.env.example`](.env.example). These are the ones you're likely to touch:
+
+| Variable                                  | Default                        | Notes                                                                                            |
+| ----------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                            | required                       | PostgreSQL connection string                                                                     |
+| `ACCESS_TOKEN_SECRET`                     | required                       | ≥ 32 characters (≥ 64 in production); placeholders are rejected                                  |
+| `FRONTEND_URL`                            | `http://localhost:3000`        | exact allowed origin(s), comma-separated; `https://` in production                               |
+| `TRUST_PROXY`                             | `0` (prod `1`)                 | proxy hops in front of the API; `2` behind the web proxy                                         |
+| `AI_PROVIDER` / `AI_API_KEY` / `AI_MODEL` | unset                          | `gemini` or `anthropic`; model defaults to `gemini-3.5-flash-lite` / `claude-opus-5`             |
+| `API_DOCS_ENABLED`                        | `true` (prod `false`)          | Swagger UI and `openapi.json`                                                                    |
+| `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD`  | `demo@example.com` / dev only  | used by the seed; the password is required in production                                         |
+| `NEXT_PUBLIC_API_URL` (web)               | `http://localhost:5000/api/v1` | build-time; an absolute `https://` URL or `/api/v1` when proxying. Invalid values fail the build |
+| `API_PROXY_URL` (web)                     | unset                          | the API origin that `/api/v1` is proxied to                                                      |
+
+Token lifetimes, rate limits, timeouts, `APP_TIMEZONE`, `COOKIE_SAME_SITE` and `LOG_LEVEL` have sensible defaults; see `.env.example`. Nothing secret is prefixed `NEXT_PUBLIC_`.
+
+Migrations are versioned and committed. Use `db:migrate` to write one and `db:deploy` (`prisma migrate deploy`) to apply them anywhere else; `prisma db push` is never used. The seed only touches the demo user and changes nothing if that user already exists, and `db:seed:reset` refuses to run in production. `npm run db:cleanup-sessions -w apps/api` deletes expired sessions and is worth scheduling daily.
+
+## Tests
 
 ```bash
 psql -U postgres -c "CREATE DATABASE task_time_tracker_test;"
-cp apps/api/.env.test.example apps/api/.env.test   # DATABASE_URL must name a *_test database
+cp apps/api/.env.test.example apps/api/.env.test   # the database name must end in _test
 npm test
 ```
 
-| Suite                 | Covers                                                                                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/unit`          | env validation (incl. production fail-fast), cookie flags, rate limiter, graceful shutdown, AI adapter parsing and errors, architecture rules                                                                  |
-| `tests/api`           | auth (rotation, reuse, CSRF/CORS), tasks, timers (races, constraints), daily and weekly dashboards (midnight, timezones, DST, completions), AI (timeouts, malformed output, injection), platform, **contract** |
-| `tests/authorization` | every task-scoped endpoint A→B and B→A; lists and aggregates contain only the caller's rows                                                                                                                    |
+The tests run against a real PostgreSQL database, not mocks. The setup refuses any database whose name doesn't end in `_test`, and it truncates tables between cases.
 
-Tests run against real PostgreSQL. Setup refuses databases whose name doesn't end in `_test` and truncates between cases. Critical guarantees were mutation-checked: removing the `userId` scoping, the AI output validation or the race handling makes tests fail.
+- `tests/unit`: environment validation (including production fail-fast), cookie flags, the rate limiter, graceful shutdown, AI adapter parsing and errors, and the architecture rules.
+- `tests/api`: auth (rotation, reuse, CSRF/CORS), tasks, timers (races and constraints), both dashboards (midnight, timezones, DST, completions), the AI endpoint (timeouts, malformed output, prompt injection), platform concerns, and the OpenAPI contract.
+- `tests/authorization`: every task-scoped endpoint, A → B and B → A, plus checks that lists and aggregates contain only the caller's rows.
 
-**CI** (`.github/workflows/ci.yml`, on every PR and push to `main`): install → migrations-match-schema check → typecheck → lint → format → unit tests → integration tests (PostgreSQL service) → build. Any failing step fails the run.
+I mutation-checked the important guarantees: removing the `userId` scoping, the AI output validation or the race handling makes tests fail.
 
-**Against a deployment:** `scripts/smoke-test.sh <api-base-url> <frontend-origin>` runs the full sign-up → timer → dashboard → logout flow over HTTP with a cookie jar (23 checks).
+CI (`.github/workflows/ci.yml`) runs on every PR and every push to `main`: install, check that migrations match the schema, typecheck, lint, format, unit tests, integration tests against a PostgreSQL service, and build.
+
+`scripts/smoke-test.sh <api-url> <frontend-origin>` runs sign-up → task → timer → dashboard → logout against a live deployment over plain HTTP with a cookie jar (23 checks).
 
 ## Deployment
 
-Production runs the web app on **Vercel** (`apps/web`), the API on **Render** (a long-running Node service) and PostgreSQL on **Neon**. The full runbook is in **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**; it also covers running the API on Vercel as a serverless function. In short:
+Production is Vercel for `apps/web`, Render for the API (a long-running Node service) and Neon for PostgreSQL. Only `main` deploys, and CI runs on every push to it. The full runbook, including running the API on Vercel as a serverless function instead, is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The short version:
 
-1. **Database:** a Neon project; its connection string is the API's `DATABASE_URL`.
-2. **API (Render):** build `npm ci --include=dev && npm run build:shared && npm run build -w apps/api`, start `npm run start:migrate -w apps/api` (applies committed migrations, then starts), health check `/api/v1/health/ready`.
-3. **Web (Vercel):** Root Directory `apps/web`, `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_URL=<Render URL>`, so auth cookies stay first-party. The API's `FRONTEND_URL` is the exact Vercel URL.
-4. **Verify:** run `scripts/smoke-test.sh`, then the browser checklist in the runbook.
+1. Create a Neon database. Give the API the **direct** connection string: Prisma's migration lock doesn't work through Neon's pooler.
+2. Render build command: `npm ci --include=dev && npm run build:shared && npm run build -w apps/api`. Start command: `npm run start:migrate -w apps/api` (applies migrations, then starts). Health check: `/api/v1/health/ready`.
+3. Vercel root directory: `apps/web`. Set `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_URL=<Render URL>`, and set the API's `FRONTEND_URL` to the exact Vercel URL.
+4. Run `scripts/smoke-test.sh` against it.
 
-Deployment is gated on CI: only `main` becomes production, and `main` is protected by a required CI check.
+`/health` reports the deployed commit, which makes it easy to confirm what's actually live.
 
-## Live Demo
+## Known limitations and what I'd do next
 
-- **App:** https://task-time-tracker-nk77.vercel.app (register an account in seconds)
-- **API:** https://task-time-tracker-5emy.onrender.com/api/v1/health/ready (health/readiness; interactive API docs are disabled in production, so run locally for Swagger UI at `/api/v1/docs`)
-
-Frontend on Vercel, API on Render, PostgreSQL on Neon. The web app proxies `/api/v1` to the API, so auth cookies are first-party. Production was verified with `scripts/smoke-test.sh` (23/23) and a real-browser pass (register, task, timer across reload, dashboard, logout). The API runs on Render's free tier, which sleeps when idle: the first request after a quiet period can take up to a minute.
-
-## Demo Credentials
-
-- **Local:** after `npm run db:seed`, sign in as `demo@example.com` / `demo-password-123` (development-only default).
-- **Production:** a separate demo account seeded with `DEMO_USER_PASSWORD`. Its password is shared with evaluators separately and never committed. Registering a new account also takes seconds.
-
-## Engineering Decisions
-
-- **Why PostgreSQL?** The data is relational (users → tasks → sessions). The core guarantees are constraints (one running timer, ownership, valid durations), and the analytics are aggregations; PostgreSQL does all three in one transactional store, including timezone math.
-- **Why Prisma?** Type-safe queries shared with TypeScript types, and versioned, reviewable migrations. Raw SQL (still parameterized and typed) is used where Prisma can't express something: overlap clipping, partial indexes, CHECKs.
-- **Why server-authoritative timers?** Client clocks drift, sleep and can be edited. The server records every timestamp, the database forbids a second running timer, and the UI only displays what the server computed.
-- **Why refresh-token rotation?** Access tokens stay short-lived and stateless. A stolen refresh token works at most once before rotation invalidates it, and a replay is detected and logged.
-- **Why an AI abstraction?** Business logic depends on an interface that returns untrusted data, not on a vendor SDK. Swapping providers means writing one adapter, and validation, timeouts and error handling stay in one place.
-- **Why database aggregation?** The dashboard sends one small JSON document instead of every task and log. Filtering, grouping, summing and ordering run next to the data and its indexes, and there is one definition of each metric.
-- **Why a modular backend?** Each domain (auth, tasks, time tracking, dashboard) owns its routes, validation, logic and queries, with one-way dependencies checked by a test. Changes stay local and the security rules can be audited.
-- **Why a same-origin proxy for cross-site deploys?** Browsers increasingly block third-party cookies, so `SameSite=None` can't be relied on. Proxying `/api/v1` through the web origin keeps HttpOnly cookies first-party with no token handling in JavaScript.
-
-## Future Improvements
-
-- Revoke all sessions on refresh-token reuse, and optionally check sessions on each request (access tokens currently outlive logout by up to 15 minutes).
-- A shared rate-limit store (e.g. Redis) for multiple API instances; limits are in-memory today.
-- An enforcing CSP with per-request nonces (it currently ships report-only).
-- Idle-timer detection (e.g. prompt after hours without activity).
-- Status history for historical pending/in-progress counts, and cursor pagination for large histories.
-- Run the browser QA pass (currently a local headless-browser script) as Playwright tests in CI.
-
-### Known limitations
-
-- The AI path is verified in production against Gemini's free tier (`gemini-3.5-flash-lite`); the Anthropic adapter has only run against a mocked provider (type-checked against the SDK and unit-tested with its real error classes). Free-tier capacity varies: a busy moment can make a suggestion take several seconds, or fail with a clear "try again" message.
-- UI flows were verified in a headless Chromium browser (Edge) against production builds: 25 checks covering auth, timer persistence across reloads and browser restarts, dashboards, keyboard navigation, dialogs, horizontal overflow at 375/768/1280 px, contrast, session expiry and logout. They have not yet been checked on physical phones or tablets, or in Safari.
-- Registration reveals whether an email is taken (409, per the API contract); login does not.
-- Two concurrent status changes to one task can both pass the transition check (no row locking; single-user data).
-- A session split across midnight can lose up to 1 s in total (each day's part is rounded down).
-- `npm audit` reports one high advisory in `deepmerge-ts`, used by the `prisma` CLI's config loader. The CLI is a runtime dependency so production can run `prisma migrate deploy`, but the vulnerable merge only processes this repository's own `prisma.config.ts`, never request data; every Prisma 6/7 release is affected, and there is no in-range fix.
+- Access tokens can outlive logout by up to 15 minutes. Next steps: revoke all of a user's sessions when refresh-token reuse is detected, and optionally check the session on each request.
+- Rate limits are in memory, which is fine for one instance. A second instance would need a shared store such as Redis.
+- The CSP ships in report-only mode. An enforcing CSP with per-request nonces is the next step.
+- Two concurrent status changes to the same task can both pass the transition check, because rows aren't locked. For single-user data I accepted that.
+- A session split across midnight can lose up to one second in total, because each day's portion is rounded down.
+- Registration reveals whether an email is already taken (409); login doesn't.
+- The Gemini path is verified in production on the free tier; the Anthropic adapter has only run against a mocked provider. Free-tier capacity varies, so a suggestion can occasionally take several seconds, or fail with a "try again" message.
+- Browser QA is a local headless-Chromium script, run against production builds at phone, tablet and desktop widths. It hasn't been tested in Safari or on physical devices, and it should become Playwright tests in CI.
+- `npm audit` flags `deepmerge-ts`, a dependency of the Prisma CLI's config loader. It only ever merges this repo's own `prisma.config.ts`, never request data, and no Prisma 6 or 7 release ships a fix yet.
+- Also on the list: idle-timer detection (a nudge after hours without activity), status history for historical workload figures, and cursor pagination for long histories.
