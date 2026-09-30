@@ -1,0 +1,6 @@
+# Keep LF everywhere, regardless of core.autocrlf: Prettier checks for LF,
+# and scripts/*.sh must not get CRLF on Windows checkouts.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
